@@ -1,0 +1,6 @@
+numpy
+music21
+pretty_midi
+drawSvg
+librosa
+scipy
