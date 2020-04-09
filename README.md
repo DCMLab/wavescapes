@@ -1,13 +1,21 @@
 # wavescapes
 
 
-Wavescapes are visual plots which can represent measurement of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner in the plot allowing for all possible subsections of a musical piece to have their measurement of regularity beind displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). In the case ....
+Wavescapes are visual plots which can represent measurement of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner in the plot allowing for all possible subsections of a musical piece to have their measurement of regularity beind displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). In the case .... (TODO: Complete)
 
 
 
-### installation/dependencies
+### Installation/dependencies
 
-Currently all the code needed to build wavescape can be found in the wavescape.py file. Just importing it in your project is currently sufficient to make it work. Though the following non standard libraries are required in order for all the parts in the library to function correctly:
+To install this package the following command has to be issued on a terminal prompt:
+
+```bash
+python3 -m pip install --index-url https://test.pypi.org/simple/ wavescape-viaccoz/
+```
+
+Depending on which default python distribution you have, the `python` command line instead of `python` would need to be used.
+
+Below is the list of packages required in order for this library to work. Link to the package's official webpage, and a short description of its usage in the project is specified. Normally they get installed at the same time of this package if they are not already present in your environment beforehand.
 
 * [numpy](https://numpy.org/) used for vector operations, the dft operations, and in order to model the wavescapes as matrix of colored values. 
 * [music21](https://web.mit.edu/music21/) used to parse MIDI files and get temporal and pitch informations from them.
@@ -18,10 +26,15 @@ Currently all the code needed to build wavescape can be found in the wavescape.p
 * [librosa](https://librosa.github.io/librosa/) used to produce chromagrams (i.e. pitch class distributions) from real audio.
 
 
+### documentation
+If you read this on the github repo of this project, then you can simply open up `docs/build/index.html` in your favoite browser to access the documentation. 
+
+
 ### usage
 If all functions and classes from the "module" are correctly imported, the short snippet below is an example on how to generate a wavescape plot from a MIDI file:
 
 ```python
+from wavescape import *
 # transforms the MIDI Files into a list of pitch class distribution, each corresponding to a slice of one quarter note from the file.
 pc_mat = produce_pitch_class_matrix_from_filename('Bach Prelude in C Major (BWV 846).mid', aw_size = 1.)
 # the DFT is applied to each of the pitch class distribution
@@ -35,12 +48,3 @@ canvas = ws.draw()
 # saves to produced svg "canvas" into an svg file. If this code snipped is called in a jupyter notebook's cell, just leaving the variable "canvas" at the end of the cell is enought to generate the plot in the cell's output.  
 canvas.saveSvg('bach_3rd_coeff_wavescape.svg')
 ```
-
-### TODOs/notes
-* wavfile might not needed as a package, librosa might be enought to read wav files and maybe even more.
-* make this library available through pip, and replace the dependecies 
-
-
-
-
-
