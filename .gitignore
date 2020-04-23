@@ -1,3 +1,5 @@
+build/
+notebooks/
 __pycache__/
 .ipynb_checkpoints/
 notebooks/__pycache__/
