@@ -1,5 +1,7 @@
 # wavescapes
 
+![All possible wavescapes that can be produced from Chopin's Prelude in A minor](img/ChopinPreludeAMinorAllCoeffs.png)
+
 
 Wavescapes are plots that can visually represent measurements of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner in the plot allowing for all possible subsections of a musical piece to have their measurement beind displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). Interpretation of the different components outputed by the DFT with respect to the soure musical piece allow high-level analysis of the tonality in the hierarchy of the piece. A publication describing the methodology and many use cases of this visual tool will be published in the future.
 
@@ -56,3 +58,6 @@ canvas = ws.draw()
 # saves the produced svg "canvas" into an svg file. If this code is called in a jupyter notebook's cell, just leaving the variable "canvas" at the end of the cell is enough to generate the plot in the cell's output.  
 canvas.saveSvg('bach_3rd_coeff_wavescape.svg')
 ```
+
+
+![For the prelude in C Major, this would be the image outputted by the code snippet above.](img/bach_3rd_coeff_wavescape.png)
