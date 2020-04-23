@@ -12,10 +12,6 @@ import tempfile
 import math
 import os
 
-#for display and the bonus part. 
-from PIL import Image
-from IPython.display import display
-
 test_midi_folder = 'midiFiles/'
 test_audio_folder = 'audioFiles/'
 

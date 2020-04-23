@@ -1,6 +1,6 @@
-numpy
-music21
-pretty_midi
-drawSvg
-librosa
-scipy
+pip install numpy --extra-index-url=http://pypi.org/simple/
+pip install music21 --extra-index-url=http://pypi.org/simple/ 
+pip install pretty-midi --extra-index-url=http://pypi.org/simple/
+pip install drawSvg --extra-index-url=http://pypi.org/simple/
+pip install librosa --extra-index-url=http://pypi.org/simple/
+pip install scipy --extra-index-url=http://pypi.org/simple/
