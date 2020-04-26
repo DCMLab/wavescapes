@@ -361,7 +361,14 @@ def rgba_to_rgb(to_convert, background):
 
 stand = lambda v: int(v*0xff)
 
-def circular_hue(angle, opacity=0xff, output_rgb=True, needs_shifting=True):
+def circular_hue(angle, opacity=0xff, output_rgb=True):
+    
+    #np.angle returns value in the range of [-pi : pi], where the circular hue is defined for 
+    #values in range [0 : 2pi]. Rather than shifting by a pi, the solution is for the negative
+    #part to be mapped to the [pi: 2pi] range which can be achieved by a modulo operation.
+    def two_pi_modulo(value):
+        return np.mod(value, 2*math.pi)
+    
     def step_function_quarter_pi_activation(lo_bound, hi_bound, value):
         #in the increasing path branch
         if value >= lo_bound and value <= lo_bound + math.pi/3:
@@ -377,7 +384,7 @@ def circular_hue(angle, opacity=0xff, output_rgb=True, needs_shifting=True):
                 return 1 if value > lo_bound and value < hi_bound else 0
     #Need to shift the value with one pi as the range of the angle given is between pi and minus pi
     #and the formulat I use goes from 0 to 2pi.
-    angle = angle + math.pi if needs_shifting else angle 
+    angle = two_pi_modulo(angle)
     green = lambda a: step_function_quarter_pi_activation(0, math.pi, a)
     blue = lambda a: step_function_quarter_pi_activation(math.pi*2/3, math.pi*5/3, a)
     red = lambda a: step_function_quarter_pi_activation(math.pi*4/3, math.pi/3, a)
