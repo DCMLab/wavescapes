@@ -7,7 +7,6 @@ from librosa.feature import chroma_stft
 from scipy.io import wavfile
 from IPython.display import display
 
-from scipy.misc import toimage
 from PIL import Image, ImageOps, ImageDraw
 from scipy.stats import describe
 
@@ -69,6 +68,8 @@ def rgba_to_rgb(to_convert, background):
     return [int((1 - alpha) * background[i] + alpha * to_convert[i]) for i in range(len(background))]
 
 def circular_hue(angle, opacity=0xff, output_rgb=True):
+
+    stand = lambda v: int(0xff*v)
     
     #np.angle returns value in the range of [-pi : pi], where the circular hue is defined for 
     #values in range [0 : 2pi]. Rather than shifting by a pi, the solution is for the negative
