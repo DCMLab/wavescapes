@@ -361,7 +361,20 @@ def rgba_to_rgb(to_convert, background):
 
 stand = lambda v: int(v*0xff)
 
-def circular_hue(angle, opacity=0xff, output_rgb=True):
+# implemented following this code : https://alienryderflex.com/saturation.html
+def rgb_to_saturated_rbg(rgb_value, saturation_val):
+    assert(saturation_val >= 0)
+    assert(saturation_val <= 1)
+    Pr=.299
+    Pg=.587
+    Pb=.114
+    r,g,b = rgb_value
+    P = math.sqrt(((r**2)*Pr)+((g**2)*Pg)+((b**2)*Pb))
+    apply_sat = lambda v: P+(v-P)*saturation_val
+    
+    return (apply_sat(r), apply_sat(g), apply_sat(b))
+
+def circular_hue(angle, magnitude=1., opacity_mapping=True):
     
     #np.angle returns value in the range of [-pi : pi], where the circular hue is defined for 
     #values in range [0 : 2pi]. Rather than shifting by a pi, the solution is for the negative
@@ -382,18 +395,24 @@ def circular_hue(angle, opacity=0xff, output_rgb=True):
                 return 0 if value > hi_bound and value < lo_bound else 1
             else:
                 return 1 if value > lo_bound and value < hi_bound else 0
+            
     #Need to shift the value with one pi as the range of the angle given is between pi and minus pi
     #and the formulat I use goes from 0 to 2pi.
     angle = two_pi_modulo(angle)
     green = lambda a: step_function_quarter_pi_activation(0, math.pi, a)
     blue = lambda a: step_function_quarter_pi_activation(math.pi*2/3, math.pi*5/3, a)
     red = lambda a: step_function_quarter_pi_activation(math.pi*4/3, math.pi/3, a)
-    value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)), opacity)
-    if output_rgb:
+    value = None
+    if opacity_mapping:
+        value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)), stand(magnitude))
+        #defautl background for the opacity is white.
         value = rgba_to_rgb(value, background=(0xff,0xff,0xff))
+    else:
+        value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)))
+        value = rgb_to_saturated_rbg(value, magnitude)
     return value
 
-def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', segmented_mode = False):
+def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', opacity_mapping=True):
     '''
     This function converts an upper triangle matrix filled with Fourier coefficient into 
     an upper triangle matrix filled with color values that serves as the mathematical model
@@ -422,12 +441,9 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', segmented_mode = False):
             in other words, the magnitude is relative to the max
         Default value is '0c'
                       
-    segmented_mode : bool, optional 
-        Determines wether the outputted matrix contains RGB (False) or RGBA (True). In segmented 
-        mode, the alpha channel holds the magnitude information, while the RGB holds the phase
-        In segmented mode the magnitude is applied to the RGB color of the phase to produce a
-        single RGB value that corresponds to the blend between the hue mapping of the phase
-        and the grayscale mapping of the magnitude.
+    output_opacity : bool, optional 
+        Determines whether the normalized magnitude from the fourier coefficients held in the upper-triangle matrix
+        "utm" are color-mapped to the opacity of the underlying phase color, or its saturation. 
         Default value is False.
     
     Returns
@@ -439,7 +455,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', segmented_mode = False):
     
     
     
-    def zeroth_coeff_cm(value, coeff, ):
+    def zeroth_coeff_cm(value, coeff):
         zero_c = value[0].real
         if zero_c == 0.:
             #empty pitch class vector, thus returns white color value.
@@ -460,14 +476,14 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', segmented_mode = False):
     
     
     shape_x, shape_y = np.shape(utm)[:2]
-    channel_nbr = 4 if segmented_mode else 3
+    channel_nbr = 3
     res = np.full((shape_x, shape_y, channel_nbr), (0xff), np.uint8)
     
     if magn_stra == '0c':
         for y in range(shape_y):
             for x in range(shape_x):
                 angle, magn = zeroth_coeff_cm(utm[y][x], coeff)
-                res[y][x] = circular_hue(angle, opacity=stand(magn), output_rgb = not segmented_mode)
+                res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping)
                 
     elif magn_stra == 'max':
         #arr[:,:,coeff] is a way to select only one coefficient from the tensor of all 6 coefficients 
@@ -475,7 +491,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', segmented_mode = False):
         for y in range(shape_y):
             for x in range(shape_x):
                 angle, magn = max_cm(utm[y][x], coeff, max_magn)
-                res[y][x] = circular_hue(angle, opacity=stand(magn), output_rgb = not segmented_mode)
+                res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping)
                 
     elif magn_stra == 'max_weighted':
         for y in range(shape_y):
@@ -483,7 +499,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', segmented_mode = False):
             max_magn = np.max([np.abs(el[coeff]) for el in line])
             for x in range(shape_x):
                 res[y][x] = max_cm(utm[y][x], coeff, max_magn)
-                res[y][x] = circular_hue(angle, opacity=stand(magn), output_rgb = not segmented_mode)
+                res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping)
     else:
         print('Unknown option for magn_stra')
     

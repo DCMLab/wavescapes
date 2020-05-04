@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="wavescape-viaccoz",
-    version="0.0.1",
+    version="0.0.2",
     author="Cédric Viaccoz",
     author_email="cedric.viaccoz@gmail.com",
     description="Python library to build wavescapes, plot used in musicology",
