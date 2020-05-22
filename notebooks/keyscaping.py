@@ -7,7 +7,7 @@ from librosa.feature import chroma_stft
 from scipy.io import wavfile
 from IPython.display import display
 
-from scipy.misc import toimage
+#from scipy.misc import toimage
 from PIL import Image, ImageOps, ImageDraw
 from scipy.stats import describe
 
