@@ -5,11 +5,11 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="wavescape-viaccoz",
-    version="0.0.2",
+    name="wavescapes",
+    version="1.0.0",
     author="Cédric Viaccoz",
     author_email="cedric.viaccoz@gmail.com",
-    description="Python library to build wavescapes, plot used in musicology",
+    description="Python library to build wavescapes, plots used in musicology.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/dcml/wavescapes",
