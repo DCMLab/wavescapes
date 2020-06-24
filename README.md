@@ -3,7 +3,7 @@
 ![](img/chopin_prelude_all_coeffs.png)
 
 
-Wavescapes are plots that can visually represent measurements of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner in the plot allowing for all possible subsections of a musical piece to have their measurement beind displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). Interpretation of the different components outputed by the DFT with respect to the soure musical piece allow high-level analysis of the tonality in the hierarchy of the piece. A publication describing the methodology and many use cases of this visual tool will be published in the future.
+Wavescapes are plots that can visually represent measurements of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner in the plot allowing for all possible subsections of a musical piece to have their measurement being displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). Interpretation of the different components outputed by the DFT with respect to the soure musical piece allow high-level analysis of the tonality in the hierarchy of the piece. A publication describing the methodology and many use cases of this visual tool will be published in the future.
 
 
 ### Installation
@@ -11,13 +11,10 @@ Wavescapes are plots that can visually represent measurements of regularity in m
 To install this package the following command has to be issued on a terminal prompt:
 
 ```bash
-python3 -m pip install --index-url https://test.pypi.org/simple/ --no-deps wavescape-viaccoz
+pip install wavescapes
 ```
 
-This will install the `wavescape` package from test.pypi, a testing version of pypi, the standard python package distribution service. As such, the dependencies need to be installed separately (consequence of the `--no-deps` flag), and are listed below.
-
-
-Depending on which default python distribution you have, the `python` command line instead of `python3` would need to be used. Regardless, you need to be aware this library only works with a version of python that is 3.6 or higher.
+Depending on which default python distribution you have, `pip3` instead of `pip` might be used. Regardless, you need to be aware this library only works with a version of python that is 3.7 or higher.
 
 Below is the list of packages required in order for this library to work. Link to the package's official webpage, and a short description of its usage in this project is specified. Explanations on how to install each of these can be found on each package's hyperlink.
 
@@ -30,11 +27,12 @@ Below is the list of packages required in order for this library to work. Link t
 
 
 ### documentation
-If you read this on the github repo of this project, then you can simply open up `docs/build/index.html` in your favorite browser to access the documentation. 
+
+TBD.
 
 
 ### usage
-If all functions and classes from this package are correctly imported, the short snippet below is an example on how to generate a wavescape plot from a MIDI file and save it to a SVG format. The resulting file can be opened through any modern browser to be viewed.
+If all functions and classes from this package are correctly imported, the short snippet below is an example on how to generate a wavescape plot from a MIDI file and save it as a PNG file.
 
 ```python
 from wavescapes import *
