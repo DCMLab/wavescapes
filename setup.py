@@ -18,7 +18,7 @@ setuptools.setup(
         'numpy',
         'music21',
         'pretty_midi',
-        'drawSvg',
+        'matplotlib',
         'librosa',
         'scipy'
     ],
