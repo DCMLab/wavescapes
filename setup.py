@@ -27,5 +27,6 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
+    data_files = [("", ["LICENSE"])],
     python_requires='>=3.6',
 )

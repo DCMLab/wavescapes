@@ -1,6 +1,6 @@
 # wavescapes
 
-![](img/chopin_prelude_all_coeffs.png)
+![Image showing all six wavescapes produced from Chopin's Prelude in A Minor](img/chopin_prelude_all_coeffs.png)
 
 
 Wavescapes are plots that can visually represent measurements of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner in the plot allowing for all possible subsections of a musical piece to have their measurement being displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). Interpretation of the different components outputed by the DFT with respect to the soure musical piece allow high-level analysis of the tonality in the hierarchy of the piece. A publication describing the methodology and many use cases of this visual tool will be published in the future.
@@ -14,7 +14,7 @@ To install this package the following command has to be issued on a terminal pro
 pip install wavescapes
 ```
 
-Depending on which default python distribution you have, `pip3` instead of `pip` might be used. Regardless, you need to be aware this library only works with a version of python that is 3.7 or higher.
+Depending on which default python distribution you have, `pip3` instead of `pip` might be used. Regardless, you need to be aware this library only works with a version of python that is 3.6 or higher.
 
 Below is the list of packages required in order for this library to work. Link to the package's official webpage, and a short description of its usage in this project is specified. Explanations on how to install each of these can be found on each package's hyperlink.
 
@@ -58,4 +58,4 @@ plt.savefig('bach_3rd_coeff_wavescape.png')
 ```
 
 
-![](img/bach_3rd_coeff_wavescape.png)
+![Image showing the result of the code snippet above](img/bach_3rd_coeff_wavescape.png)
