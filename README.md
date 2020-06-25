@@ -1,6 +1,6 @@
 # wavescapes
 
-![Image showing all six wavescapes produced from Chopin's Prelude in A Minor](img/chopin_prelude_all_coeffs.png)
+![Image showing all six wavescapes produced from Chopin's Prelude in A Minor](img/chopin_prelude_all_coeffs.png?raw=true "Chopin's Prelude in A Minor, visualized by wavescapes")
 
 
 Wavescapes are plots that can visually represent measurements of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner in the plot allowing for all possible subsections of a musical piece to have their measurement being displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). Interpretation of the different components outputed by the DFT with respect to the soure musical piece allow high-level analysis of the tonality in the hierarchy of the piece. A publication describing the methodology and many use cases of this visual tool will be published in the future.
@@ -58,4 +58,4 @@ plt.savefig('bach_3rd_coeff_wavescape.png')
 ```
 
 
-![Image showing the result of the code snippet above](img/bach_3rd_coeff_wavescape.png)
+![Image showing the result of the code snippet above](img/bach_3rd_coeff_wavescape.png?raw=true)
