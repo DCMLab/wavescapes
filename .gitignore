@@ -1,0 +1,9 @@
+build/
+notebooks/
+__pycache__/
+.ipynb_checkpoints/
+notebooks/__pycache__/
+notebooks/.ipynb_checkpoints/
+*.egg-info/
+dist/
+build/
