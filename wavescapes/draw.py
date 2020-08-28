@@ -1,3 +1,4 @@
+from warnings import warn
 import math
 import numpy as np
 import matplotlib as mpl
@@ -7,11 +8,13 @@ from matplotlib.ticker import MultipleLocator, IndexLocator,FuncFormatter
 
 SQRT_OF_THREE = math.sqrt(3)
 
-
 def rgb_to_hex(rgb):
     if type(rgb) is str and rgb[0] == '#' and len(rgb) > 6:
         # we already have an hex value given let's just return it back.
-        return rgb 
+        return rgb
+    elif rgb[0] == (0xff+1):
+        #not an element that has to be drawn
+        return None
     elif len(rgb) == 3:
         return '#%02x%02x%02x' % (rgb[0],rgb[1],rgb[2])
     elif len(rgb) == 4:
@@ -31,8 +34,8 @@ def coeff_nbr_to_label(k):
     else:
         return '%dth'%k
     
-
-def compute_height(width, mat_dim, drawing_primitive):
+def compute_plot_height(width, mat_dim, drawing_primitive):
+    drawing_primitive = drawing_primitive.lower()
     if drawing_primitive == Wavescape.HEXAGON_STR:
         return Wavescape.HEXAGON_PLOT_HEIGHT(width, mat_dim)
     elif drawing_primitive ==  Wavescape.RHOMBUS_STR:
@@ -41,7 +44,33 @@ def compute_height(width, mat_dim, drawing_primitive):
         return width
     else:
         raise Exception('Unknown drawing primitive: %s'%drawing_primitive)
+        
+def compute_bounding_box_limits(mat_dim, start, end, width, height, primitive_half_width):
+    #this is invariant.
+    bottom = -height/2.
+    if start == 0 and mat_dim == end:
+        #base case.
+        return (-width/2.-primitive_half_width, width/2.-primitive_half_width, height/2., bottom)
+    else:
+        #resizing needed because of subwavescaping
+        scaling_factor = (end - start)/mat_dim
+        subzone_width = width * scaling_factor
+        subzone_height = height * scaling_factor + primitive_half_width
+        left = (width*(start/mat_dim)) - width/2. -primitive_half_width
+        right = left + subzone_width
+        return (left,right,bottom+subzone_height,bottom)
 
+def get_primitive_height(primitive_name, primitive_width):
+    primitive_name = primitive_name.lower()
+    if primitive_name == Wavescape.HEXAGON_STR:
+        return 2*SQRT_OF_THREE*primitive_width/3.
+    elif primitive_name == Wavescape.DIAMOND_STR:
+        return primitive_width*2
+    elif primitive_name == Wavescape.RHOMBUS_STR:
+        return primitive_width * SQRT_OF_THREE
+    else:
+        raise Exception('Unknown drawing primitive: %s'%primitive_name)
+    
 class DiamondPrimitive(object):
     def __init__(self, x, y, width, height, color, bottom_diamond):
         self.half_width = width/2.
@@ -55,21 +84,23 @@ class DiamondPrimitive(object):
         curr_color = new_color if new_color else self.color
         x = self.x
         y = self.y
+        is_rgba = len(curr_color) > 8
+        edgecolor = 'black' if stroke else None if is_rgba else curr_color
         # this is to treat the bottom diamond that needs to be drawn as a triangle
         last_coord = (x,y if self.bottom_diamond else y-self.half_height)
         return Polygon(((x-self.half_width, y),
                                (x, y+self.half_height),
                                (x+self.half_width, y),
                                last_coord),
-                         alpha=1,
                          facecolor = curr_color,
-                         edgecolor=stroke if stroke else curr_color,
-                         linewidth=self.half_width/10. if stroke else None)
+                         edgecolor=edgecolor,
+                         linewidth=stroke if stroke else None)
 
 class HexagonPrimitive(object):
     def __init__(self, x, y, width, color):
         self.half_width = width/2.
         self.h = SQRT_OF_THREE*self.half_width/3.
+        self.half_height = self.h/2.
         self.x = x
         self.y = y
         self.color = color
@@ -80,16 +111,42 @@ class HexagonPrimitive(object):
         d_x = self.x
         d_y = self.y
         curr_color = new_color if new_color else self.color
+        is_rgba = len(curr_color) > 8
+        edgecolor = 'black' if stroke else None if is_rgba else curr_color
         return Polygon(((d_x+w, d_y+h),
                         (d_x, d_y+2*h),
                         (d_x-w, d_y+h),
                         (d_x-w, d_y-h),
                         (d_x, d_y-2*h),
                         (d_x+w, d_y-h)),
-                         alpha=1,
                          facecolor = curr_color,
-                         edgecolor=stroke if stroke else curr_color,
-                         linewidth=w/20. if stroke else None)
+                         edgecolor= edgecolor,
+                         linewidth= stroke if stroke else None)
+    
+def new_primitive_with_coords(curr_color, x, y, hws, hhs, primitive_name, primitive_width, primitive_height):
+    '''
+    Generates the primitive at the right place in the final plot according to the parameter chosen.
+    '''
+    #classic x-axis placement taking into account the half width of the hexagon
+    d_x = primitive_width*x
+    #Now shifting all of this to the left to go from utm placement to pyramid placement
+    d_x = d_x - primitive_width*y/2.
+    #And finally shifting this to take into account center placement of the figure
+    d_x = d_x - hws
+    #accounting center placement in the y axis before adding the actual element y-position
+    d_y = -hhs
+    
+    primitive_name = primitive_name.lower()
+    if primitive_name == Wavescape.HEXAGON_STR:
+        d_y = d_y + primitive_height/2.+(0.75*primitive_height)*y
+        return HexagonPrimitive(d_x, d_y, primitive_width, curr_color)
+    elif primitive_name == Wavescape.RHOMBUS_STR or primitive_name == Wavescape.DIAMOND_STR:
+        d_y = d_y + primitive_height/2.*y
+        return DiamondPrimitive(d_x, d_y, \
+                          primitive_width, primitive_height, curr_color, y == 0)
+    else:
+        raise Exception('Unknown drawing primitive: %s'%primitive_name)
+    
 class Wavescape(object):
     '''
     This class represent an object that holds the attributes 
@@ -101,7 +158,7 @@ class Wavescape(object):
         upper triangle matrix holding color values as tuples of 3 (RGB) or 4 (RGBA) 8 bit integers. 
         Holds the color information and their relevant informations to draw the plot.
         
-    width : int
+    pixel_width : int
         the width in pixels of the plot. It needs to be at least twice as big as the shape of the 
         upper triangle matrix. The height of the plot is defined by the drawing primitive chosen.
         
@@ -112,13 +169,6 @@ class Wavescape(object):
           -'rhombus': diamond formed by two equilateral triangles. Each side is the same size
           -'hexagon': a hexagon, i.e. a 6 sides polygonal shape, each side being the same size.
         default value is 'rhombus'
-        
-    subparts_highlighted: array of tuples of int, optional
-        list of subsection that needs to be drawn with black outlines on the wavescape. Units
-        are expressed in number of analysis windows. For example, if a musical piece has a 4/4 
-        time signature, an analysis window of 1 quarter note and a total of 10 bars, the
-        value [[20,28],[32,36]] for 'subparts_highlighted' will draw black outlines on th region
-        of the wavescape corresponding to bars 5 until 7 and 8 until 9.
     '''
     #Formula derived with a bit of algebra in order to determine the height of the wavescape hexagon plot 
     #based on the just the given plot's width (wi) and the number of layer (n). The SQRT_OF_THREE*wi was broadcasted
@@ -131,8 +181,9 @@ class Wavescape(object):
     DIAMOND_STR = 'diamond'
     RHOMBUS_STR = 'rhombus'
     HEXAGON_STR = 'hexagon'
+    ALL_PRIMITIVE_SUPPORTED = [DIAMOND_STR, RHOMBUS_STR, HEXAGON_STR]
     
-    def __init__(self, utm, pixel_width, drawing_primitive='rhombus', subparts_highlighted=None):
+    def __init__(self, utm, pixel_width, drawing_primitive='rhombus'):
         self.utm = utm
         self.width = pixel_width
         self.drawing_primitive = drawing_primitive
@@ -146,22 +197,18 @@ class Wavescape(object):
             raise Exception("The upper triangle matrix given as argument does not hold either RGB or RGBA values")
         self.mat_dim = mat_dim
         
-        self.subparts = subparts_highlighted
-        
         #building a matrix with None to hold the element object for drawing them later.
         self.matrix_primitive = np.full((mat_dim, mat_dim), None, object)
         
-        self.height = compute_height(self.width, mat_dim, drawing_primitive)
-        if drawing_primitive == self.HEXAGON_STR:
-            self.generate_hexagons(subparts_highlighted)
-        elif drawing_primitive == self.RHOMBUS_STR or drawing_primitive == self.DIAMOND_STR:
-            self.generate_diamonds(subparts_highlighted)
+        if drawing_primitive.lower() in Wavescape.ALL_PRIMITIVE_SUPPORTED:
+            self.height = compute_plot_height(self.width, mat_dim, drawing_primitive)
+            self.generate_primitives()
         else:
             raise Exception('Unkown drawing primitive: %s'%drawing_primitive)
             
-    def generate_hightlights(self, unit_width):
+    def generate_highlights(self, unit_width, linewidth):
         '''
-        Helper method, is called by the other helper functions 'generate_diamonds/hexagons'. 
+        Helper method
         Take care of generating the drawing primitive corresponding to the 
         highlights given as arguments to the constructor of the Wavescape class. 
         '''
@@ -174,7 +221,7 @@ class Wavescape(object):
             if lo > self.mat_dim or hi > self.mat_dim:
                 raise Exception('Subpart highlights\' indices cannot be above the number of element at the base of the wavescape (%d)'%self.mat_dim)
             tri_width = (hi-lo) * unit_width
-            tri_height = compute_height(tri_width, hi-lo, self.drawing_primitive)
+            tri_height = compute_plot_height(tri_width, hi-lo, self.drawing_primitive)
             xl = (lo-.5)*unit_width - self.width/2.
             yb = -self.height/2.
             xr = (hi-.5)*unit_width - self.width/2.
@@ -186,82 +233,30 @@ class Wavescape(object):
                          alpha=1,
                          facecolor = None,
                          fill = None,
-                         linewidth=1))
+                         linewidth=linewidth))
         self.subparts = triangles
                 
-    
-    def generate_hexagons(self, subparts_highlighted):
+    def generate_primitives(self):
         '''
-        Helper method, is called by the constructor of the class. 
-        This method takes care of generating the Hexagon drawing primitives in case such
-        drawing primitive was chosen. One matplotlib.patches.Polygon is generated per element 
-        of the plot. The draw method takes care of drawing those patches on the final figure.
+        Helper method, called by the constructor of the class. 
+        This method takes care of generating a "primitive" class instance per element forming the wavescape.  
+        One matplotlib.patches.Polygon is generated per element of the plot. 
+        The draw method takes care of drawing those patches on the final figure.
         '''
-        hexagon_width = self.width/float(self.mat_dim)
-        hexagon_height = 2*SQRT_OF_THREE*hexagon_width/3.
         half_width_shift = self.width/2.
         half_height_shift = self.height/2.
+        primitive_width = self.width/float(self.mat_dim)
+        primitive_height = get_primitive_height(self.drawing_primitive, primitive_width)
         
         for y in range(self.mat_dim):
             for x in range(y, self.mat_dim):
-                curr_color = rgb_to_hex(rgba_to_rgb(self.utm[y][x], background=(0xff,0xff,0xff)))
-                #Useless to draw if there is nothing but blank to draw
-                if curr_color != '#FFFFFF':
-                    #classic x-axis placement taking into account the half width of the hexagon
-                    d_x = hexagon_width*x
-                    #Now shifting all of this to the left to go from utm placement to pyramid placement
-                    d_x = d_x - hexagon_width*y/2.
-                    #And finally shifting this to take into account drawSvg center placement I posed
-                    d_x = d_x - half_width_shift
-                    
-                    d_y = hexagon_height/2.+(0.75*hexagon_height)*y
-                    d_y = d_y - half_height_shift
-                    
-                    #self.matrix_primitive[y][x] = Hexagon(d_x, d_y, hexagon_width, curr_color)
-                    self.matrix_primitive[y][x] = HexagonPrimitive(d_x, d_y, hexagon_width, curr_color)
-        
-        if subparts_highlighted:
-            self.generate_hightlights(hexagon_width)
-        else:
-            self.subparts = None
-    
-    def generate_diamonds(self, subparts_highlighted):
-        '''
-        Helper method, is called by the constructor of the class. 
-        This method takes care of generating the Diamond drawing primitives in case such
-        drawing primitive was chosen. One matplotlib.patches.Polygon is generated per element 
-        of the plot. The draw method takes care of drawing those patches on the final figure.
-        '''
-        diamond_width = self.width/float(self.mat_dim)
-        diamond_height = diamond_width*2 if self.drawing_primitive != 'rhombus' else diamond_width * SQRT_OF_THREE
-        
-        half_width_shift = self.width/2.
-        half_height_shift = self.height/2.
-        
-        for y in range(self.mat_dim):
-            for x in range(y, self.mat_dim):
-                
-                curr_color = rgb_to_hex(rgba_to_rgb(self.utm[y][x], background=(0xff,0xff,0xff)))
-                #Useless to draw if there is nothing but blank to draw, duh.
-                if curr_color != '#FFFFFF':
-                    #classic x-axis placement taking into account the edge from the diamond 
-                    d_x = diamond_width*x
-                    #Now shifting all of this to the left to go from utm placement to pyramid placement
-                    d_x = d_x - diamond_width*y/2.
-                    #And finally shifting this to take into account drawSvg center placement I posed
-                    d_x = d_x - half_width_shift
-                    
-                    d_y = diamond_height/2.*y
-                    d_y = d_y - half_height_shift
-                    self.matrix_primitive[y][x] = DiamondPrimitive(d_x, d_y, \
-                                          diamond_width, diamond_height, curr_color, y == 0)
-        
-        if subparts_highlighted:
-            self.generate_hightlights(diamond_width)
-        else:
-            self.subparts = None
+                curr_color = rgb_to_hex(self.utm[y][x])
+                if curr_color:
+                    self.matrix_primitive[y][x] = new_primitive_with_coords(curr_color, x, y, half_width_shift,\
+                                                                            half_height_shift, self.drawing_primitive,\
+                                                                            primitive_width, primitive_height) 
 
-    def draw(self, ax=None, dpi=96, plot_indicators = True, add_line = False, tick_ratio = None, start_offset=0, label=None):
+    def draw(self, ax=None, tick_ratio = None, tick_offset=None, tick_factor=1, subparts_highlighted = None, indicator_size = None, add_line = None, label=None, label_size=None):
         '''
         After being called on a properly initialised instance of a Wavescape object,
         this method draws the visual plot known as "wavescape" and generate a 
@@ -271,77 +266,172 @@ class Wavescape(object):
 
         Parameters
         ----------
+        
         ax: matplotlib figure, optional
+            if provided, will draw the wavescape on it. Useful if many wavescapes need to
+            be drawn in the same figure, or if the plot needs to be combined to others.
             Default value is None.
         
-        plot_indicators: bool, optional 
-            indicates whether rounded indicators on the lateral edges of the plot need to 
-            be drawn. A rounded indicator is drawn at each eight of the height of the plot
-            Default value is True
-            
-        dpi: int, optional
-            dot per inch (dpi) of the figure. N
-            Default value is 96, which is normally the dpi on windows machine. The dpi 
-            
-        add_line: bool, optional
-            indicates whether all element of the plot (single drawing primitives) need to be
-            outlined with a black line.
-            Default value is False.
-            
-            
-        tick_ratio: int, optional
+        tick_ratio: numeric value, optional
             Ratio of tick per elements of the lowest level in the wavescape. If tick_ratio has value 1,
             one horizontal axis tick will be drawn per element at the lowest hierarchical level of the wavescape, 
-            if it has value 2, then a tick will be drawn each two elements. For the ticks to represent the bar numbers,
-            a preexisting knowledge of the time signature of the musical piece is required. (if a piece is in 4/4,
+            if it has value 2, then a tick will be drawn each two elements and so forth. For the ticks to represent the bar numbers,
+            a pre-existing knowledge of the time signature of the musical piece is required. (for instance, if a piece is in 4/4,
             and the analysis window has a size of one quarter note, then tick_ratio needs to have value 4 for the
             ticks to correspond to bar numbers)
             Default value is None (meaning no ticks are drawn)
+            
+        tick_offset: int, optional
+            offset value for the tick drawn according to the 'tick_ratio' parameter. This is done
+            so that musical pieces with 0th measure can have tick accurately representing the source
+            material's bar numbers. Like the tick ratio, this number is relative to the analysis window's
+            size and requires a pre-existing knowledge of the score.
+            Its value must be higher or equal to 0 but strictly lower than tick_ratio.
+            If it has value "0", the first tick of the plot will be set to the value of 1. 
+            For having the first tick of the plot set to the value of 0, leave that parameter to
+            None and have a coherent value for tick_ratio
+            Default value is None (meaning no tick offset). 
+        
+        tick_factor: float, optional
+            Multiply the major ticks numbers displayed on the x-axis by a constant.
+            Can be useful for very large pieces, where displaying a single tick on each
+            bottom row element would make the x-axis hard to read. By increasing the tick_ratio,
+            and giving this parameter a certain value, it is possible to display less ticks while 
+            still keeping the right indicative numbers with respect to the unit system chosen. 
+            Default value is 1.0, (meaning the value displayed is consistent with the number of ticks, with 
+            respect to tick_offset of course.)
+        
+        subparts_highlighted: tuple of numeric values, OR array of tuples of numeric values, optional
+            List of subsections that needs to be highlighted with black outlines on the wavescape. Units
+            are expressed in number of analysis windows. For example, if a musical piece has a 4/4 
+            time signature, an analysis window of 1 quarter note and a total of 10 bars, the
+            value [[20,28],[32,36]] for 'subparts_highlighted' will draw black outlines on the region
+            of the wavescape corresponding to bars 5 until 7 and 8 until 9. 
+            This parameter is interpreted differently if it has the shape of a single tuple. In such case,
+            a subpplot corresponding to the delimitation in the tuple will be drawn instead. For instance,
+            'subparts_highlighted=[20,28]' will only draw the wavescape corresponding to piece from bar
+            5 to 7 (if the musical piece is in 4/4). Be careful not to write 'subparts_highlighted=[[20,28]]' 
+            which is interpreted as drawing a highlight of bar 5 to 7 on the full wavescape.
+            Default value is None (meaning no highlighting and no subsection of wavescape drawn)
+
+        indicator_size: float, optional 
+            Determine the factor by which to increment the size of the rounded indicators on the lateral edges of the plot that need. 
+            A rounded indicator is drawn at each eight of the height of the plot if a value is provided for this argument.
+            Enter the value "1.0" for the default size.
+            Default value is None (meaning no vertical indicators)
+        
+        add_line: numeric value, optional
+            if provided, this parameter represents the thickness of the black line outlining
+            all element of the plot (drawing primitives).
+            Default value is None.
+        
+        label: str, optional
+            If provided, add this string as a textual label on the top left corner of the resulting plot.
+            Can be used to specify the Fourier coefficient visualised on the wavescape for example.
+            Default value is None
+            
+        label_size: float, optional
+            Determine the size of the top-left label and the tick number labels if provided
+            Default value is None (in which case the default 
+            size of the labels is the width of the plot divided by 30)
 
         Returns
         -------
-        Nothing, but a matplotlib.pyplot figure is produced by this method, and any method of that library
+        Nothing, but a matplotlib.pyplot figure is produced by this method, and any method of pyplot
         can be used to alter the resulting figure (notably matplotlib.pyplot.savefig can be used to save the
-        resulting figure in an Image format)
+        resulting figure in a file)
         '''
         
+        start_primitive_idx = 0
         utm_w = self.matrix_primitive.shape[0]
         utm_h = self.matrix_primitive.shape[1]
         
         if self.matrix_primitive is None or utm_w < 1 or utm_h < 1:
-            raise Exception("cannot draw when there is nothing to draw. Don't forget to generate diamonds in the correct mode before drawing.")
+            raise Exception("Cannot draw when there is nothing to draw.")
         
-        if tick_ratio: 
+        if tick_ratio is not None: 
             
             if tick_ratio < 1 or type(tick_ratio) is not int:
-                raise Exception("Tick ratio must be an integer greater or equal to 1")
+                raise Exception("'tick_ratio' must be an integer greater or equal to 1")
+            
+            if tick_factor <= 0 or (type(tick_factor) is not int and type(tick_factor) is not float):
+                raise Exception("'tick_factor' must be a numeric value greater to 0")
             
             #argument start_offseet is only meaningless if there is tick ratio involved in the plotting
-            if type(start_offset) is not int or start_offset < 0 or start_offset > tick_ratio:
+            if tick_offset is not None and (type(tick_offset) is not int or tick_offset < 0 or tick_offset > tick_ratio):
                 raise Exception("Stat offset needs to be a positive integer that is smaller or equal to the tick ratio")
+        
+        
+        idx = 0
+        primitive_half_width = 0
+        while primitive_half_width == 0 and idx < utm_w:
+            elem = self.matrix_primitive[0][idx]
+            if elem:
+                #needed for highlights and some tick ofsetting later.
+                primitive_half_width = elem.half_width
+                #needed for outlines
+                primitive_half_height = elem.half_height
+            idx += 1
+            
+        if primitive_half_width == 0 and idx == utm_w:
+            raise Exception('No primitive were generated for the drawing of the wavescape')
+        
+        subpart_offset = 0
+        if subparts_highlighted is not None:
+            hl_dimensions = len(np.shape(subparts_highlighted))
+            if hl_dimensions == 1 and len(subparts_highlighted) == 2:
+                #restraining dimensions of what'll be drawn
+                if subparts_highlighted[0] >= subparts_highlighted[1]:
+                    raise Exception('subparts_highlighted coordinates should be ordered and not the same')
+                elif subparts_highlighted[0] > utm_w or subparts_highlighted[1] > utm_w:
+                    raise Exception('subparts_highlighted coordinates should not exceed the matrix size (%d)'%utm_w)
+                    
+                start_primitive_idx = subparts_highlighted[0]
+                utm_h = subparts_highlighted[1]
+                utm_w = subparts_highlighted[1]
+                
+                #cannot work with this "mode"
+                if indicator_size:
+                    msg = "Vertical indicators cannot be drawn when subparts are being produced."
+                    warn(msg)
+                    indicator_size = None
+                self.subparts=None
+                
+                #need to adapt start offset
+                if tick_ratio:
+                    subpart_offset = -(start_primitive_idx % tick_ratio)
+                
+            elif hl_dimensions == 2:
+                #wavescape fullpart conserved, only has to draw highlights on it.
+                self.subparts = subparts_highlighted
+                #so the highlights are thicker than the delimiting lines
+                linewidth = 2.5*add_line if add_line else 1
+                self.generate_highlights(primitive_half_width * 2, linewidth)
+            else:
+                raise Exception('subparts_highlighted should be a matrix of numeric values or a tuple of numbers')
+        else:
+            self.subparts = None
         
         height = self.height
         width = self.width
-
-        
-        black_stroke_or_none = 'black' if add_line else None
+    
+        dpi = 96 #(most common dpi values for computers' screen)
         if not ax:
             fig = plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
             ax = fig.add_subplot(111, aspect='equal')
-        primitive_half_width = None
         
 
-        for y in range(self.matrix_primitive.shape[0]):
-            for x in range(y, self.matrix_primitive.shape[1]):
+        for y in range(utm_h):
+            for x in range(start_primitive_idx+y, utm_w):
                 element = self.matrix_primitive[y][x]
-                if x == 1 and x == y:
-                    primitive_half_width = element.half_width
-                ax.add_patch(element.draw(stroke=black_stroke_or_none))
+                #array of primitive is by default filled with None value, this avoid that.
+                if element:
+                    ax.add_patch(element.draw(stroke=add_line))
                              
-
-        if plot_indicators:
-            ind_width = width if self.drawing_primitive != self.HEXAGON_STR else width + 2
-            mid_size = int(self.width / 40.)
+        
+        if indicator_size:
+            ind_width = (width if self.drawing_primitive != self.HEXAGON_STR else width + 2) * indicator_size
+            mid_size = int(ind_width / 60.)
             eigth_size = int(mid_size /4.)
             quart_size = eigth_size * 3
 
@@ -374,23 +464,38 @@ class Wavescape(object):
 
         plt.autoscale(enable = True)
         
-        labelsize = self.width/30.
+        if not tick_ratio and not label and label_size:
+            msg = "'label_size' argument provided when nothing needs to be labeled on the figure."
+            warn(msg)
+            
+        labelsize = label_size if label_size else self.width/30.
         
         if tick_ratio:
-            indiv_w = self.width/utm_w
-            scale_x = indiv_w * tick_ratio
-            ticks_x = FuncFormatter(lambda x, pos: '{0:g}'.format(math.ceil((x+ self.width/2.)/scale_x) + (1 if start_offset == 0 else 0)))
+            indiv_w = primitive_half_width*2
             
+            scale_x = indiv_w * tick_ratio
+            major_ticks_formatter = None
+            maj_loc_offset = None
+            
+            if tick_offset is not None:
+                maj_loc_offset = (tick_offset+subpart_offset)*indiv_w
+                major_ticks_formatter = lambda x, pos: '{0:g}'.format(math.ceil((x + self.width/2.)/scale_x)*tick_factor + (1 if tick_offset < 1 else 0))
+            else:
+                maj_loc_offset = subpart_offset*indiv_w
+                major_ticks_formatter = lambda x, pos: '{0:g}'.format(math.ceil((x + self.width/2.)/scale_x)*tick_factor)
+            
+            ticks_x = FuncFormatter(major_ticks_formatter)
             ax.tick_params(which='major', length=self.width/50., labelsize=labelsize)
             ax.tick_params(which='minor', length=self.width/100.)
             
             ax.xaxis.set_major_formatter(ticks_x)
             number_of_ticks = self.width/scale_x
-            eight_major_tick_base = scale_x*round(number_of_ticks/8.)
-            ax.xaxis.set_major_locator(IndexLocator(base=eight_major_tick_base, offset=start_offset*indiv_w))
+            number_of_bars = (utm_w-start_primitive_idx)/tick_ratio
+            major_tick_base = scale_x*round(number_of_ticks/(8 if number_of_bars > 8 else number_of_ticks))
+            ax.xaxis.set_major_locator(IndexLocator(base=major_tick_base, offset=maj_loc_offset))
             
             #display minor indicators
-            ax.xaxis.set_minor_locator(IndexLocator(base=scale_x, offset=start_offset*indiv_w))
+            ax.xaxis.set_minor_locator(IndexLocator(base=scale_x, offset=maj_loc_offset))
             
             #make all the other border invisible
             ax.spines['top'].set_visible(False)
@@ -398,103 +503,31 @@ class Wavescape(object):
             ax.spines['left'].set_visible(False)
             plt.yticks([])
         else:
+            if tick_offset is not None and tick_offset != 0:
+                msg="'tick_offset' has no effect if 'tick_ratio' is not provided."
+                warn(msg)
             plt.axis('off')
-            
+        
         if self.subparts:
             for pat in self.subparts:
                 ax.add_patch(pat)
 
-        #remove top and bottom margins 
+        #whether a subwavescape is drawn will influence the values returned by this function.
+        bb_l, bb_r, bb_t, bb_b = compute_bounding_box_limits(self.matrix_primitive.shape[0], start_primitive_idx, utm_w, self.width, self.height, primitive_half_width)
+        
+        #needed to account for line_width in the plot's size
+        if add_line:
+            bb_l += -add_line
+            bb_r += add_line
+        
         if label:
-            x_pos = -self.width/2. + self.width/10.
-            y_pos = self.height/2. - self.width/10.
+            new_width = np.abs(bb_l - bb_r)
+            new_height = np.abs(bb_b - bb_t)
+            x_pos = (new_width/20.) + bb_l
+            y_pos =  bb_t - (new_height/20.) 
             ax.annotate(label, (x_pos, y_pos), size=labelsize, annotation_clip=False, horizontalalignment='left', verticalalignment='top')
-        ax.set_ylim(bottom=-self.height/2., top=self.height/2.)
-        ax.set_xlim(left=-self.width/2.-primitive_half_width, right=self.width/2.-primitive_half_width)
+            
+        #remove top and bottom margins 
+        ax.set_ylim(bottom=bb_b, top=bb_t)
+        ax.set_xlim(left=bb_l, right=bb_r)
         plt.tight_layout()
-
-def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None):
-    '''
-    Draw the circle color space defined by the color mapping used in wavescapes.
-    Given a dict of labels/pitch-class vector, and list of coefficient to visualize,
-    this function will plot the position of each of the PCV on the coefficient selected.
-    This function helps visualising which color of the wavescape correspond to which musical 
-    structure with respect to the coefficient number.
-    
-    Parameters
-    ----------
-    
-    pcv_dict: dict, type of key is str, type of value is an array of array dimension (2,N) (0<= N, <=12)
-        defines the label and pitch-class vector to be drawn, as well as the list of coefficients on which
-        the pitch-class vector position needs to be drawn. For example, consider this dict is given to the
-        function:
-        {'CMaj':[[1,0,1,0,1,1,0,1,0,1,0,1], [5]],
-         'Daug':[[0,0,1,0,0,0,1,0,0,0,1,0], [3,6]],
-         'E': [0,0,0,0,1,0,0,0,0,0,0,0], [0]}
-         The position of the C Major diatonic scale will be drawn on the color space of the fifth coefficient,
-         while the position of the D augmented triad will be drawn on the color space of both the third and
-         sixth coefficient. Finally, the value 0 associated to the single pitch PCV 'E' indicates its position
-         will be drawn on all of the 6 coefficients. The label support LateX math mode.
-    
-    width: int, optional
-        plot's width in inches.
-        Default value is 13.
-        
-    single_img_coeff: int, optional
-        Indicates which coefficient's color space will be drawn. If no number or "None" is provided for the value
-        of this parameter, then the resulting plots will feature all 6 color space, one per coefficient. The coefficient
-        number contain in the dict 'pcv_dict' still apply if a single coefficient is selected with this parameter.
-        Default value is None.
-        
-    '''
-    phivals = np.arange(0, 2*np.pi, 0.01)
-    mu_step = .025
-    muvals = np.arange(0, 1. + mu_step, mu_step)
-    
-    #powerset of all phis and mus.
-    cartesian_polar = np.array(np.meshgrid(phivals, muvals)).T.reshape(-1, 2)
-    
-    #generating the color corresponding to each point.
-    color_arr = []
-    for phi, mu in cartesian_polar:
-        hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, opacity_mapping=True))
-        color_arr.append(hexa)
-        
-    xvals = cartesian_polar[:,0]
-    yvals = cartesian_polar[:,1]
-
-    norm = mpl.colors.Normalize(0.0, 2*np.pi)
-    fig = plt.figure(figsize= (width,width) if single_img_coeff else (width, 8*width/5) )
-    
-    def single_circle(ax, i, pcv_dict, marker_width, display_title=True):
-        label_size = (marker_width/10.)
-        ax.scatter(xvals, yvals, c=color_arr, s=marker_width, norm=norm, linewidths=1, marker='.')
-        if display_title:
-            ax.set_title(coeff_nbr_to_label(i)+' coefficient', fontdict={'fontsize': label_size+6}, y=1.08)
-        for k,v in pcv_dict.items():
-            for coeff in v[1]:
-                if coeff == i or coeff == 0:
-                    comp = np.fft.fft(v[0])
-                    angle = np.angle(comp[i])
-                    magn = np.abs(comp[i])/np.abs(comp[0])
-                    ax.scatter(angle, magn, s=marker_width, facecolors='none', edgecolors='#777777')
-                    pos_magn = np.abs(magn-0.125)
-                    ax.annotate(k, (angle, pos_magn), size=(marker_width/10.)+2, annotation_clip=False, horizontalalignment='center', verticalalignment='center')
-        
-        ax.tick_params(axis='both', which='major', labelsize=(marker_width/10.)+6)
-        ax.tick_params(axis='both', which='minor', labelsize=(marker_width/10.)+4)
-        ax.set_xticklabels(['$0$', '', '$\pi/2$', '', '$\pi$', '', '$3\pi/2$', ''])
-        ax.set_yticks([])
-        ax.spines['polar'].set_visible(False)
-        ax.xaxis.grid(False)
-    
-    if single_img_coeff:
-        ax = plt.subplot(1, 1, 1, polar=True)
-        single_circle(ax=ax, i=single_img_coeff, pcv_dict=pcv_dict, marker_width=20*width, display_title=False)
-    else:
-        for i in range(1, 7):
-            ax = fig.add_subplot(3, 2, i, polar=True)
-            single_circle(ax=ax, i=i, pcv_dict= pcv_dict, marker_width=10*width)
-        plt.tight_layout() #needs to be before subplot_adjust, otherwise subplot_adjust is useless.
-        fig.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=.3)
-

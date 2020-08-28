@@ -1,6 +1,8 @@
 import numpy as np
 import math
 
+from warnings import warn
+
 def rgba_to_rgb(to_convert, background):
     if len(to_convert) == 3:
         return to_convert #no point converting something that is already in RGB
@@ -26,7 +28,7 @@ def rgb_to_saturated_rbg(rgb_value, saturation_val):
     
     return (apply_sat(r), apply_sat(g), apply_sat(b))
 
-def circular_hue(angle, magnitude=1., opacity_mapping=True):
+def circular_hue(angle, magnitude=1., opacity_mapping=True, output_rgba=True):
     
     #np.angle returns value in the range of [-pi : pi], where the circular hue is defined for 
     #values in range [0 : 2pi]. Rather than shifting by a pi, the solution is for the negative
@@ -57,14 +59,17 @@ def circular_hue(angle, magnitude=1., opacity_mapping=True):
     value = None
     if opacity_mapping:
         value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)), stand(magnitude))
-        #defautl background for the opacity is white.
-        value = rgba_to_rgb(value, background=(0xff,0xff,0xff))
+        if not output_rgba:
+            #default background for the opacity is white.
+            value = rgba_to_rgb(value, background=(0xff,0xff,0xff))
     else:
         value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)))
         value = rgb_to_saturated_rbg(value, magnitude)
+        if output_rgba:
+            value = (value[0], value[1], value[2], stand(0xff))
     return value
 
-def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', opacity_mapping=True):
+def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', opacity_mapping=True, output_rgba=False, output_raw_values=False):
     '''
     Converts an upper triangle matrix filled with Fourier coefficients into 
     an upper triangle matrix filled with color values that serves as the mathematical model
@@ -78,7 +83,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', opacity_mapping=True):
     coeff: int
         number between 1 to 6, will define which coefficient plot will be visualised in the outputted upper triangle matrix. 
     
-    magn_strat : {'0c', 'max', 'max_weighted'}, optional
+    magn_strat : {'0c', 'boost', 'max', 'max_weighted', 'raw'}, optional
         Since the magnitude is unbounded, but its grayscale visual representation needs to be bounded,
         Different normalisation of the magnitude are possible to constrain it to a value between 0 and 1.
         Below is the listing of the different value accepted for the argument magn_stra
@@ -86,6 +91,11 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', opacity_mapping=True):
             (which corresponds to the sum of the weight of each pitch class). This ensures only
             pitch class distribution whose periodicity exactly match the coefficient's periodicity can
             reach the value of 1.
+        - 'boost' : based on the 0c normalisation but "boost" the space of all normalized magnitude so 
+                    the maximum magnitude observable is set to the max opacity value. This means that if any PCV in the
+                    utm given as input reaches the 0c normalized magnitude of 1, this parameter acts like
+                    the '0c' one. This magn_strat should be used with audio input mainly, as seldom PCV derived 
+                    from audio data can reach the maximal value of normalized magnitude for any coefficient.
         - 'max': set the grayscal value 1 to the maximum possible magnitude in the wavescape, and interpolate linearly
             all other values of magnitude based on that maximum value set to 1. Warning: will bias the visual representation
             in a way that the top of the visualisation will display much more magnitude than lower levels. 
@@ -93,18 +103,46 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', opacity_mapping=True):
             in other words, each level will have a different opacity mapping, with the value 1 set to the maximum magnitude
             at this level. This normalisation is an attempt to remove the bias toward higher hierarchical level that is introduced
             by the 'max' magnitude process cited previously.
+        - 'raw' : does not normalize the magnitude at all. Can break the wavescapes pipeline as the
+            raw magnitude values cannot be mapped in 
         Default value is '0c'
                       
     output_opacity : bool, optional 
         Determines whether the normalized magnitude from the fourier coefficients held in the upper-triangle matrix
         "utm" are color-mapped to the opacity of the underlying phase color, or its saturation. 
         Default value is True (i.e. opacity mapping).
-    
+        
+    output_rgba : bool, optional
+        Determines whether the resulting matrix contains color values encoded in RGB (Red Green Blue) or 
+        RGBA (Red Green Blue Alpha) format, where alpha is the opacity channel. 
+        RGBA can be useful in opacity mapping to obtain wavescapes that are somewhat transparent on low magnitude elements. 
+        If output_rgba is set to false (i.e. values outputed in RGB instead), the opacity is performed by assuming a white backdrop, and
+        generating the rgb values of the transparent color over white. 
+        This argument has a side-effet later in the pipeline during Wavescape.draw. Because of the rasterisation process
+        of Matplotlib, transparent elements of the wavescapes will have noticeable seams between them.
+        The higher the pixel size of the plots relative to the number of elements will make those seams 
+        appear less noticeable, but so far no concrete solution exists to remove those seams. Those seams
+        are not present in RGB mode.
+        Note that you might need the "transparent" parameters of  the function plt.savefig to be set to True in order
+        to correctly save the plot as a transparent image.
+        Note that this argument works with saturation, but nothing changes (the alpha channel 
+        is just set to 1 in RGBA mode anyway) except the seams as a result of the RGBA rasterisation side effet.
+        Default value is False (rgb values are outputted)
+        
+    output_raw_values: bool, optional
+        Determines whether the resulting matrix contains tuples of raw angle and magnitude (normalized or not)
+        that were not converted to color values. This can be useful for using wavescapes in other purposes than
+        visualisation (for instance, using them to do corpus analysis or historical analysis). Since this type
+        of output is incompatible with visualisation without any further processing, this parameter is not
+        accessible through the aggregate function "generate_single_wavescape" and "generate_all_wavescapes"
+        Default value is False (rgb(a) values are outputted)
+        
     Returns
     -------
     numpy.ndarray
-        an upper triangle matrix of dimension NxN holding all rgb
-        values corresponding to the color mapping of a single Fourier coefficient from the input.
+        an upper triangle matrix of dimension NxNx2, NxNx3 or NxNx4 holding either rgb(a)
+        values corresponding to the color mapping of a single Fourier coefficient from the input, or
+        the angle and magnitudes of a certain coefficient.
     '''
     
     def zeroth_coeff_cm(value, coeff):
@@ -126,32 +164,75 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra = '0c', opacity_mapping=True):
         angle = np.angle(nth_c)
         return (angle, magn/max_magn)
     
+    if output_rgba and output_raw_values:
+        output_rgba = False #Only one shall prevail
+        msg = "parameters 'output_rgba' and 'output_raw_values' cannot be set to True at the same time. 'output_raw_values' takes precedence in that case, and no color values are produced."
+        warn(msg)
     
     shape_x, shape_y = np.shape(utm)[:2]
-    channel_nbr = 3
-    res = np.full((shape_x, shape_y, channel_nbr), (0xff), np.uint8)
+    #RGB => 3 values, RGBA => RGB + 1 value, raw values => angle & magnitude => 2 values
+    channel_nbr = 4 if output_rgba else 2 if output_raw_values else 3
+    default_value = 0.0 if output_raw_values else (0xff+1)
+    default_type = np.float64 if output_raw_values else np.uint64
+    #+1 to differentiate empty elements from white elements later down the line.
+    res = np.full((shape_x, shape_y, channel_nbr), default_value, default_type)
     
     if magn_stra == '0c':
         for y in range(shape_y):
             for x in range(shape_x):
-                angle, magn = zeroth_coeff_cm(utm[y][x], coeff)
-                res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping)
+                curr_value = utm[y][x]
+                if np.any(curr_value):
+                    angle, magn = zeroth_coeff_cm(curr_value, coeff)
+                    res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping, output_rgba=output_rgba) if not output_raw_values else (angle, magn)
+    
+    elif magn_stra == 'boost':
+        angle_magn_mat = np.full((shape_x, shape_y, 2), 0., np.float64)
+        for y in range(shape_y):
+            for x in range(shape_x):
+                curr_value = utm[y][x]
+                if np.any(curr_value):
+                    angle, magn = zeroth_coeff_cm(curr_value, coeff)
+                    angle_magn_mat[y][x][0] = angle
+                    angle_magn_mat[y][x][1] = magn
+        max_magn = np.max(angle_magn_mat[:,:,1])
+        boosting_factor = 1./float(max_magn)
+        msg = 'Max magnitude of %lf observed for coeff. number %d, boosting all magnitudes by %.2lf%% of their original values'%(max_magn, coeff,100*boosting_factor)
+        warn(msg)
+        for y in range(shape_y):
+            for x in range(shape_x):
+                angle, magn = angle_magn_mat[y][x]
+                if np.any([angle, magn]):
+                    res[y][x] = circular_hue(angle, magnitude=magn*boosting_factor, opacity_mapping = opacity_mapping, output_rgba=output_rgba) if not output_raw_values else (angle, magn)
                 
     elif magn_stra == 'max':
         #arr[:,:,coeff] is a way to select only one coefficient from the tensor of all 6 coefficients 
         max_magn = np.max(np.abs(utm[:,:,coeff]))
         for y in range(shape_y):
             for x in range(shape_x):
-                angle, magn = max_cm(utm[y][x], coeff, max_magn)
-                res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping)
+                curr_value = utm[y][x]
+                if np.any(curr_value):
+                    angle, magn = max_cm(curr_value, coeff, max_magn)
+                    res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping, output_rgba=output_rgba) if not output_raw_values else (angle, magn)
                 
     elif magn_stra == 'max_weighted':
         for y in range(shape_y):
             line = utm[y]
             max_magn = np.max([np.abs(el[coeff]) for el in line])
             for x in range(shape_x):
-                angle, magn = max_cm(utm[y][x], coeff, max_magn)
-                res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping)
+                curr_value = utm[y][x]
+                if np.any(curr_value):
+                    angle, magn = max_cm(curr_value, coeff, max_magn)
+                    res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping, output_rgba=output_rgba) if not output_raw_values else (angle, magn)
+    
+    elif magn_stra == 'raw':
+        for y in range(shape_y):
+            for x in range(shape_x):
+                curr_value = utm[y][x]
+                if np.any(curr_value):
+                    value = curr_value[coeff]
+                    angle = np.angle(value)
+                    magn = np.abs(value)
+                    res[y][x] = circular_hue(angle, magnitude=magn, opacity_mapping = opacity_mapping, output_rgba=output_rgba) if not output_raw_values else (angle, magn)
     else:
         raise Exception('Unknown option for magn_stra')
     

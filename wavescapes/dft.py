@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def build_utm_from_one_row(res):
     '''
     given a NxN matrix whose first row is the only

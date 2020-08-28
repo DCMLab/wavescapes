@@ -1,10 +1,14 @@
 import numpy as np
 import music21 as m21
 import pretty_midi as pm
+from madmom.audio import chroma
 
+from warnings import warn
 import tempfile
 import math
+import os
 
+deep_chroma_processor = chroma.DeepChromaProcessor()
 
 twelve_tones_vector_name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#','A', 'A#', 'B']
 
@@ -59,7 +63,7 @@ pitch_index_dict = {twelve_tones_vector_name[i]:i for i in range(len(twelve_tone
 #So any pitch name given to this dict will be mapped to its cannonical form defined in 'twelve_tones_vector_name'
 normalize_notation_dict = dict(altered_notation_dict,  **pitch_pitch_dict)
 
-def recursively_map_offset(filepath, only_note_name=True):
+def recursively_map_offset(stream, only_note_name=True):
     '''
     This function recursively walks through the file's  stream's elements, 
     and whenever it encounters a note, it will append its rhytmic 
@@ -75,8 +79,8 @@ def recursively_map_offset(filepath, only_note_name=True):
     
     Parameters
     ----------
-    filepath : str
-        the path of the MIDI file to be parsed into the list of pitches and time offset.
+    stream : music21.stream.Stream
+        the music21 stream to be parsed into the list of pitches and time offset.
         
     only_note_name: bool, optional 
         indicates whether the notes need to be converted from music21 object with octave indication
@@ -94,24 +98,47 @@ def recursively_map_offset(filepath, only_note_name=True):
         offset in time of the note's occurrence. Both values are expressed in terms of quarter 
         note length.
         '('E', (10,11,5))' for example would be one element of this iterable, representing an E note
-        which starts at the 10th quarter note of the MIDI file and stops one quarter note and half
+        which starts at the 10th quarter note of the input file and stops one quarter note and half
         later in the piece. 
         
     
     '''
-    midi_stream = m21.converter.parse(filepath)
     res = []
-    for elem in midi_stream.recurse():
+    for elem in stream.recurse():
         if isinstance(elem, m21.note.Note):
-            start_offset = elem.getOffsetInHierarchy(midi_stream)
+            start_offset = elem.getOffsetInHierarchy(stream)
             res.append((elem.name if only_note_name else elem, (start_offset, start_offset+elem.duration.quarterLength)))
         elif isinstance(elem, m21.chord.Chord):
-            start_offset = elem.getOffsetInHierarchy(midi_stream)
+            start_offset = elem.getOffsetInHierarchy(stream)
             res += list(map(lambda r: (r.name if only_note_name else r , (start_offset, start_offset+elem.duration.quarterLength)), elem.pitches))
     return res
 
 
-def remove_drums_from_midi_file(midi_filepath):
+def remove_unpitched_tracks_from_xml_stream(xml_stream):
+    '''
+    Takes care of removing drum/percussions tracks from an xml file parsed into a .
+    Work only if the XML file has metadata clearly indicating parts that have a 
+    "percussion" clef (or no clef at all). 
+    
+    Parameters
+    ----------
+    xml_stream : music21.stream.Stream
+        the music21 stream that needs to have percussive parts removed. 
+    
+    Returns
+    -------
+    instance of music21.stream.Stream without the percussive parts of the score
+    
+    '''
+    #creating a new score that will hold the pitched parts
+    s = m21.stream.Score() 
+    for part in m21.instrument.partitionByInstrument(xml_stream):
+        #filtering out the non-pitched clefs.
+        if not isinstance(part.clef, m21.clef.NoClef) and not isinstance(part.clef, m21.clef.PercussionClef):
+            s.append(part)
+    return s
+
+def remove_unpitched_tracks_from_midi_file(midi_filepath):
     '''
     Takes care of removing drum tracks from a midi filename.
     Work only if the MIDI file has metadata clearly indicating channels that are
@@ -201,7 +228,6 @@ def pitch_class_set_vector_from_pitch_offset_list(pitch_offset_array, aw_size=0.
     temporal size aw_size.
     
     '''
-    
     max_beat = get_max_beat(pitch_offset_array)
     
     if aw_size <= max_beat/2:
@@ -220,7 +246,41 @@ def pitch_class_set_vector_from_pitch_offset_list(pitch_offset_array, aw_size=0.
     
     return res_vector
 
+#useful to increase the default resolution 
+def reframe_pc_mat(pc_mat, bin_size):
+    if bin_size == 1:
+        return pc_mat
+    
+    curr_bin_nb = pc_mat.shape[0]
+    new_bin_nb = int(math.ceil(curr_bin_nb/bin_size))
+    res = np.full((new_bin_nb, pc_mat.shape[1]), 0., np.float64)
+    for i in range(new_bin_nb):
+        res[i] = sum(pc_mat[int(i*bin_size):int((i+1)*bin_size)])
+    return res
 
+#left here for comparison purpose.
+'''
+def librosa_chromagram(filepath, aw_size):
+    audio_array, sample_ratio = librosa.load(filepath)
+    
+    hop_len = round(sample_ratio*aw_size) #hop_len is the analysis window size for the chromagrams in terms of number of sample.
+    #so the result's shape is consistent with the one produced in the case of midi files.
+    return np.transpose(librosa.feature.chroma_stft(audio_array, sample_ratio, hop_length=hop_len))
+'''
+
+def madmom_chromagram(filepath, aw_size, deep_chroma = False):
+    dcp_base_fps = 10
+    fps = 1./float(aw_size)
+    if aw_size < .1:
+        raise Exception("Audio PCV extraction using the deep chroma extractor can not be done for resolution lower than 0.1 (one tenth of a second)")
+    
+    if deep_chroma:
+        chromagrams = deep_chroma_processor.process(filepath)
+        return reframe_pc_mat(chromagrams, (dcp_base_fps/fps)) 
+    else:
+        clp = chroma.CLPChromaProcessor(fps=fps)
+        return clp.process(filepath)
+    
 # trim the input array so that no empty vectors are located at the beginning and end of the muscial piece
 def trim_pcs_array(pcvs):
     start = 0
@@ -231,8 +291,7 @@ def trim_pcs_array(pcvs):
         end -= 1
     return pcvs[start:end+1]
 
-
-def produce_pitch_class_matrix_from_filename(filepath, remove_percussions = True, aw_size = 1., trim_extremities=True):
+def produce_pitch_class_matrix_from_filename(filepath, aw_size = 1., trim_extremities=True, remove_unpitched_tracks = False, deep_chroma = False):
     '''
     This function takes a MIDI or XML file as a parameters and
     transforms it into "list of pitch class distribution"
@@ -245,21 +304,18 @@ def produce_pitch_class_matrix_from_filename(filepath, remove_percussions = True
     Parameters
     ----------
     filepath : str 
-        the path of the MID/MIDI/XML/MUSICXML file whose musical content 
+        the path of the MID/MIDI/XML/MUSICXML/WAV file whose musical content 
         is transformed into the pitch class distribution's list.
         It should be noted that MIDI file exported by Musescore often features 
-        "truncated" noteàs length for the playback to feel more natural, however this 
+        "truncated" note's length for the playback to feel more natural, however this 
         affects the the Pitch Class Vectors produced from this function. For example,
         notes shorter than a sixteenth notes will simply be mapped to a weight of 0 in
         the resulting PCVs. If you use MuseScore to edit scores, always export your musical
         pieces in xml format, as this format does not suffer from those truncations. Only
         use MIDI if you are certain of the integrity of your file, or if you don't have any choices.
-                 
-    remove_percussions : bool, optional 
-        indicates whether percussive instruments need to be removed from the mix. 
-        ONLY APPLIES TO MIDI FILES CURRENTLY.
-        Default value is True.
-                          
+        Other audio file formats than WAV are supported, but they all rely on "ffmpeg" and as
+        such are only supported if this package is installed.
+        
     aw_size : float, optional
         means "analysis window's size", represent the size of each
         slice of pitch content from the file in terms of time. In the case 
@@ -273,7 +329,19 @@ def produce_pitch_class_matrix_from_filename(filepath, remove_percussions = True
         extremities of the musical piece needs to be removed from the resulting list of pitch
         class distribution. Only apply to input data in symbolic format (i.e. not on real audio)
         Default value is True.
+                 
+    remove_unpitched_tracks : bool, optional 
+        indicates whether percussive instruments need to be removed from the mix. 
+        Only applies to file holding symbolic data (MIDI and XML currently).
+        Default value is False.
         
+    deep_chroma: bool, optional
+        indicates which chromagram extractor to use from the madmom library.
+        If set to True, the DeepChromaProcessor (a pretrained DNN with a set resolution
+        of one tenth of a second) is used, otherwise, the CLPChromaProcessor 
+        (a method of PCV retrival using log-compression with parametric resolution) 
+        from madmom is used.
+        Default value is False. 
     
     Returns
     -------
@@ -286,18 +354,33 @@ def produce_pitch_class_matrix_from_filename(filepath, remove_percussions = True
     lower_filepath = filepath.lower()
     midi_extensions = ('.mid', '.midi')
     xml_extensions = ('.mxl', '.xml', '.musicxml')
+
+    if not os.path.isfile(filepath):
+        raise Exception('Cannot find file "%s"'%filepath)
     
     if lower_filepath.endswith(midi_extensions) or lower_filepath.endswith(xml_extensions):
+
+        if deep_chroma:
+            msg = "argument 'deep_chroma' is meaningless on Symbolic data input. Only use it for real audio data."
+            warn(msg)
         
-        #percussion filtering only for midi files for now.
-        if lower_filepath.endswith(midi_extensions) and remove_percussions:
-            filepath = remove_drums_from_midi_file(filepath)
+        music_stream = None
+        if remove_unpitched_tracks:
+            if lower_filepath.endswith(midi_extensions):
+                music_stream = m21.converter.parse(remove_unpitched_tracks_from_midi_file(filepath))
+            elif lower_filepath.endswith(xml_extensions):
+                music_stream = remove_unpitched_tracks_from_xml_stream(m21.converter.parse(filepath))
+        else:
+            #someone wants to keep non-pitched elements in their wavescape. K.
+            music_stream = m21.converter.parse(filepath)
         
-        pitch_offset_list = recursively_map_offset(filepath)
+        pitch_offset_list = recursively_map_offset(music_stream)
         pcvs_arr = pitch_class_set_vector_from_pitch_offset_list(pitch_offset_list, aw_size)
-        return trim_pcs_array(pcvs_arr) if trim_extremities else pcvs_arr
-    #temporarily removed.
-    #elif filepath.endswith('.wav'):
-    #    return produce_chromagrams_from_audio_file(filepath, aw_size)
     else:
-        raise Exception('The file should be in MIDI or XML format')
+        #audio file input.
+        if remove_unpitched_tracks:
+            msg = "'remove_unpitched_tracks' argument is meaningless on real audio. Only use it for symbolic data (MIDI/XML)."
+            warn(msg)
+        pcvs_arr = madmom_chromagram(filepath, aw_size, deep_chroma)
+        
+    return trim_pcs_array(pcvs_arr) if trim_extremities else pcvs_arr
