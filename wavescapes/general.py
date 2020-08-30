@@ -11,7 +11,7 @@ def generate_single_wavescape(filepath, pixel_width, coefficient, aw_size=1, sav
                              remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,\
                             magn_stra='0c', output_rgba=False, drawing_primitive=Wavescape.RHOMBUS_STR,\
                             tick_ratio=None, tick_offset=None, tick_factor=1,\
-                            indicator_size=None, add_line=False, subparts_highlighted=None, label=None, label_size=None):
+                            indicator_size=None, add_line=False, subparts_highlighted=None, label=None, label_size=None, ax=None):
     
     '''
     Given a fourier coefficient, generates the wavescape from 
@@ -98,6 +98,10 @@ def generate_single_wavescape(filepath, pixel_width, coefficient, aw_size=1, sav
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is None (in which case the default 
         size of the labels is the width of the plot divided by 30)
+
+    ax: matplotlib figure, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None.
     
     '''
     dpi = 96#(most common dpi values for computers' screen)
@@ -105,7 +109,7 @@ def generate_single_wavescape(filepath, pixel_width, coefficient, aw_size=1, sav
     fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat, build_utm=True)
     color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba)
     ws = Wavescape(color_mat, pixel_width=pixel_width, drawing_primitive=drawing_primitive)
-    ws.draw(indicator_size=indicator_size, tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor, add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size)
+    ws.draw(indicator_size=indicator_size, tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor, add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
     if save_label:
         plt.savefig(save_label, transparent=output_rgba)
 
@@ -247,7 +251,7 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opaci
         the pitch-class vector position needs to be drawn. For example, consider this dict is given to the
         function:
         {'CMaj':([1,0,1,0,1,1,0,1,0,1,0,1], [5]),
-         'Daug': ([0,0,2,0,0,0,1,0,0,0,5,0], [3,6]),
+         'D#aug': ([0,0,0,2,0,0,0,1,0,0,0,5], [3,4]),
          'E': ([0,0,0,0,6,0,0,0,0,0,0,0], [0])}
          The position of the C Major diatonic scale will be drawn on the color space of the fifth coefficient,
          while the position of the D augmented triad will be drawn on the color space of both the third and
