@@ -4,7 +4,7 @@ import numpy as np
 
 from .pcv import produce_pitch_class_matrix_from_filename
 from .dft import apply_dft_to_pitch_class_matrix
-from .color import complex_utm_to_ws_utm
+from .color import complex_utm_to_ws_utm, circular_hue
 from .draw import Wavescape, compute_plot_height, rgb_to_hex, coeff_nbr_to_label
 
 def generate_single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=None,\
@@ -231,7 +231,7 @@ def generate_all_wavescapes(filepath,individual_width, save_label=None,\
             
     plt.tight_layout()
 
-def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None):
+def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opacity_mapping=False):
     '''
     Draw the circle color space defined by the color mapping used in wavescapes.
     Given a dict of labels/pitch-class vector, and list of coefficient to visualize,
@@ -246,9 +246,9 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None):
         defines the label and pitch-class vector to be drawn, as well as the list of coefficients on which
         the pitch-class vector position needs to be drawn. For example, consider this dict is given to the
         function:
-        {'CMaj':[[1,0,1,0,1,1,0,1,0,1,0,1], [5]],
-         'Daug':[[0,0,1,0,0,0,1,0,0,0,1,0], [3,6]],
-         'E': [0,0,0,0,1,0,0,0,0,0,0,0], [0]}
+        {'CMaj':([1,0,1,0,1,1,0,1,0,1,0,1], [5]),
+         'Daug': ([0,0,2,0,0,0,1,0,0,0,5,0], [3,6]),
+         'E': ([0,0,0,0,6,0,0,0,0,0,0,0], [0])}
          The position of the C Major diatonic scale will be drawn on the color space of the fifth coefficient,
          while the position of the D augmented triad will be drawn on the color space of both the third and
          sixth coefficient. Finally, the value 0 associated to the single pitch PCV 'E' indicates its position
@@ -261,8 +261,14 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None):
     single_img_coeff: int, optional
         Indicates which coefficient's color space will be drawn. If no number or "None" is provided for the value
         of this parameter, then the resulting plots will feature all 6 color space, one per coefficient. The coefficient
-        number contain in the dict 'pcv_dict' still apply if a single coefficient is selected with this parameter.
+        number contained in the dict 'pcv_dict' still apply if a single coefficient is selected with this parameter.
         Default value is None.
+
+    no_opacity_mapping: bool, optional
+        Indicates whether the resulting plot needs to display the magnitude as opacity mapping from the center to
+        the outward part of the circle. If only the phase, and thus the hue, of a certain musical structure
+        is needed to be seen, this parameter needs to be set to False. 
+        Default value is False (meaning the resulting plot displays opacity values)
         
     '''
     phivals = np.arange(0, 2*np.pi, 0.01)
@@ -275,7 +281,7 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None):
     #generating the color corresponding to each point.
     color_arr = []
     for phi, mu in cartesian_polar:
-        hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, opacity_mapping=True))
+        hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, opacity_mapping=True, output_rgba=no_opacity_mapping))
         color_arr.append(hexa)
         
     xvals = cartesian_polar[:,0]
