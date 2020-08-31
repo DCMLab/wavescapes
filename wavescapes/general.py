@@ -7,7 +7,7 @@ from .dft import apply_dft_to_pitch_class_matrix
 from .color import complex_utm_to_ws_utm, circular_hue
 from .draw import Wavescape, compute_plot_height, rgb_to_hex, coeff_nbr_to_label
 
-def generate_single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=None,\
+def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=None,\
                              remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,\
                             magn_stra='0c', output_rgba=False, drawing_primitive=Wavescape.RHOMBUS_STR,\
                             tick_ratio=None, tick_offset=None, tick_factor=1,\
@@ -115,7 +115,7 @@ def generate_single_wavescape(filepath, pixel_width, coefficient, aw_size=1, sav
 
 
 #generate all plots in one image
-def generate_all_wavescapes(filepath,individual_width, save_label=None,\
+def all_wavescapes(filepath,individual_width, save_label=None,\
                             aw_size=1, remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,\
                             magn_stra = '0c', output_rgba = False, drawing_primitive=Wavescape.RHOMBUS_STR,\
                             tick_ratio=None, tick_offset=None, tick_factor=1.,\
