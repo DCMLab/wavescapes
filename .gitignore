@@ -5,6 +5,7 @@ __pycache__/
 notebooks/__pycache__/
 notebooks/.ipynb_checkpoints/
 tutorials/.DS_Store
+Tutorials/inputs/.DS_Store
 tutorials/wavescapes
 *.egg-info/
 dist/
