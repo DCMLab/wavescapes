@@ -235,7 +235,7 @@ def all_wavescapes(filepath,individual_width, save_label=None,\
             
     plt.tight_layout()
 
-def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opacity_mapping=False):
+def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opacity_mapping=False, no_hue_mapping=False):
     '''
     Draw the circle color space defined by the color mapping used in wavescapes.
     Given a dict of labels/pitch-class vector, and list of coefficient to visualize,
@@ -285,7 +285,16 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opaci
     #generating the color corresponding to each point.
     color_arr = []
     for phi, mu in cartesian_polar:
-        hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, opacity_mapping=True, output_rgba=no_opacity_mapping))
+        if no_hue_mapping:
+            if no_opacity_mapping:
+                hexa = '#ffffff'
+            else:
+                stand = lambda v: int(0xff * (1-v))
+                g = stand(mu)
+                hexa = rgb_to_hex([g,g,g])
+        else:
+            hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, opacity_mapping=True, output_rgba=no_opacity_mapping))
+            
         color_arr.append(hexa)
         
     xvals = cartesian_polar[:,0]
