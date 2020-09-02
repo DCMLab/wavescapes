@@ -10,7 +10,7 @@ from .draw import Wavescape, compute_plot_height, rgb_to_hex, coeff_nbr_to_label
 def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=None,\
                              remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,\
                             magn_stra='0c', output_rgba=False, drawing_primitive=Wavescape.RHOMBUS_STR,\
-                            tick_ratio=None, tick_offset=None, tick_factor=1,\
+                            tick_ratio=None, tick_offset=None, tick_factor=1, no_opacity_mapping=False, no_hue_mapping=False,\
                             indicator_size=None, add_line=False, subparts_highlighted=None, label=None, label_size=None, ax=None):
     
     '''
@@ -107,7 +107,7 @@ def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=N
     dpi = 96#(most common dpi values for computers' screen)
     pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size, deep_chroma=deep_chroma, trim_extremities=trim_extremities, remove_unpitched_tracks=remove_unpitched_tracks)
     fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat, build_utm=True)
-    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba)
+    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba, no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
     ws = Wavescape(color_mat, pixel_width=pixel_width, drawing_primitive=drawing_primitive)
     ws.draw(indicator_size=indicator_size, tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor, add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
     if save_label:
@@ -118,7 +118,7 @@ def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=N
 def all_wavescapes(filepath,individual_width, save_label=None,\
                             aw_size=1, remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,\
                             magn_stra = '0c', output_rgba = False, drawing_primitive=Wavescape.RHOMBUS_STR,\
-                            tick_ratio=None, tick_offset=None, tick_factor=1.,\
+                            tick_ratio=None, tick_offset=None, tick_factor=1.,no_opacity_mapping=False, no_hue_mapping=False,\
                             indicator_size=None, add_line=False, subparts_highlighted = None, label_size=None):
 
     '''
@@ -221,7 +221,7 @@ def all_wavescapes(filepath,individual_width, save_label=None,\
         fig = plt.figure(figsize=(total_width, total_height), dpi=dpi)
         
     for i in range(1, 7):
-        color_utm = complex_utm_to_ws_utm(fourier_mat, coeff=i, magn_stra=magn_stra, output_rgba=output_rgba)
+        color_utm = complex_utm_to_ws_utm(fourier_mat, coeff=i, magn_stra=magn_stra, output_rgba=output_rgba, no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
         w = Wavescape(color_utm, pixel_width=individual_width, drawing_primitive=drawing_primitive)
         if save_label:
             w.draw(indicator_size=indicator_size, add_line=add_line,\
