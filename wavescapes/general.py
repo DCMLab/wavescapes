@@ -293,7 +293,7 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opaci
                 g = stand(mu)
                 hexa = rgb_to_hex([g,g,g])
         else:
-            hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, opacity_mapping=True, output_rgba=no_opacity_mapping))
+            hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, output_rgba=no_opacity_mapping))
             
         color_arr.append(hexa)
         
