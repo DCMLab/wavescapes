@@ -7,13 +7,14 @@ from .dft import apply_dft_to_pitch_class_matrix
 from .color import complex_utm_to_ws_utm, circular_hue
 from .draw import Wavescape, compute_plot_height, rgb_to_hex, coeff_nbr_to_label
 
-def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=None,\
-                             remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,\
-                            magn_stra='0c', output_rgba=False, drawing_primitive=Wavescape.RHOMBUS_STR,\
-                            tick_ratio=None, tick_offset=None, tick_factor=1, no_opacity_mapping=False, no_hue_mapping=False,\
-                            indicator_size=None, add_line=False, subparts_highlighted=None, label=None, label_size=None, ax=None):
-    
-    '''
+
+def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=None,
+                     remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,
+                     magn_stra='0c', output_rgba=False, drawing_primitive=Wavescape.RHOMBUS_STR,
+                     tick_ratio=None, tick_offset=None, tick_factor=1, no_opacity_mapping=False, no_hue_mapping=False,
+                     indicator_size=None, add_line=False, subparts_highlighted=None, label=None, label_size=None,
+                     ax=None):
+    """
     Given a fourier coefficient, generates the wavescape from 
     the file path of a musical piece in MIDI or XML format.
     
@@ -103,25 +104,28 @@ def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=N
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is None.
     
-    '''
-    dpi = 96#(most common dpi values for computers' screen)
-    pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size, deep_chroma=deep_chroma, trim_extremities=trim_extremities, remove_unpitched_tracks=remove_unpitched_tracks)
+    """
+    pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size, deep_chroma=deep_chroma,
+                                                      trim_extremities=trim_extremities,
+                                                      remove_unpitched_tracks=remove_unpitched_tracks)
     fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat, build_utm=True)
-    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba, no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
+    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba,
+                                      no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
     ws = Wavescape(color_mat, pixel_width=pixel_width, drawing_primitive=drawing_primitive)
-    ws.draw(indicator_size=indicator_size, tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor, add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
+    ws.draw(indicator_size=indicator_size, tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor,
+            add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
     if save_label:
         plt.savefig(save_label, transparent=output_rgba)
 
 
-#generate all plots in one image
-def all_wavescapes(filepath,individual_width, save_label=None,\
-                            aw_size=1, remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,\
-                            magn_stra = '0c', output_rgba = False, drawing_primitive=Wavescape.RHOMBUS_STR,\
-                            tick_ratio=None, tick_offset=None, tick_factor=1.,no_opacity_mapping=False, no_hue_mapping=False,\
-                            indicator_size=None, add_line=False, subparts_highlighted = None, label_size=None):
+# generate all plots in one image
+def all_wavescapes(filepath,individual_width, save_label=None,
+                   aw_size=1, remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,
+                   magn_stra = '0c', output_rgba = False, drawing_primitive=Wavescape.RHOMBUS_STR,
+                   tick_ratio=None, tick_offset=None, tick_factor=1.,no_opacity_mapping=False, no_hue_mapping=False,
+                   indicator_size=None, add_line=False, subparts_highlighted = None, label_size=None):
 
-    '''
+    """
     Generates the wavescapes for all six unique Fourier coefficients given
     the path of a musical piece in the format supported. 
     Can output all 6 coefficients in a single figure, or output and save
@@ -210,33 +214,40 @@ def all_wavescapes(filepath,individual_width, save_label=None,\
         Default value is None (in which case the default 
         size of the labels is the width of one individual plot divided by 30)
     
-    '''
-    pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size, remove_unpitched_tracks=remove_unpitched_tracks, trim_extremities=trim_extremities, deep_chroma=deep_chroma)
+    """
+    pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size,
+                                                      remove_unpitched_tracks=remove_unpitched_tracks,
+                                                      trim_extremities=trim_extremities, deep_chroma=deep_chroma)
     fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat)
-    
-    dpi = 96 #(most common dpi values for computers' screen)
+
+    dpi = 96  # (most common dpi values for computers' screen)
     total_width = (3.1*individual_width)/dpi
     total_height = (2.1*compute_plot_height(individual_width, fourier_mat.shape[0], drawing_primitive))/dpi
     if not save_label:
         fig = plt.figure(figsize=(total_width, total_height), dpi=dpi)
         
     for i in range(1, 7):
-        color_utm = complex_utm_to_ws_utm(fourier_mat, coeff=i, magn_stra=magn_stra, output_rgba=output_rgba, no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
+        color_utm = complex_utm_to_ws_utm(fourier_mat, coeff=i, magn_stra=magn_stra, output_rgba=output_rgba,
+                                          no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
         w = Wavescape(color_utm, pixel_width=individual_width, drawing_primitive=drawing_primitive)
         if save_label:
-            w.draw(indicator_size=indicator_size, add_line=add_line,\
-               tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor, subparts_highlighted=subparts_highlighted, label_size=label_size)
+            w.draw(indicator_size=indicator_size, add_line=add_line,
+                   tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor,
+                   subparts_highlighted=subparts_highlighted, label_size=label_size)
             plt.tight_layout()
             plt.savefig(save_label+str(i)+'.png', bbox_inches='tight', transparent=output_rgba)
         else:
-            ax = fig.add_subplot(2, 3, i, aspect='equal')
-            w.draw(ax=ax, indicator_size=indicator_size, add_line=add_line,\
-               tick_ratio=tick_ratio,tick_offset=tick_offset, tick_factor=tick_factor, label=coeff_nbr_to_label(i)+' coeff.', subparts_highlighted=subparts_highlighted, label_size=label_size)
+            ax = fig.add_subplot(2, 3, i, aspect='equal')  # TODO: what if fig was not initialised above?
+            w.draw(ax=ax, indicator_size=indicator_size, add_line=add_line,
+                   tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor,
+                   label=coeff_nbr_to_label(i) + ' coeff.', subparts_highlighted=subparts_highlighted,
+                   label_size=label_size)
             
     plt.tight_layout()
 
+
 def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opacity_mapping=False, no_hue_mapping=False):
-    '''
+    """
     Draw the circle color space defined by the color mapping used in wavescapes.
     Given a dict of labels/pitch-class vector, and list of coefficient to visualize,
     this function will plot the position of each of the PCV on the coefficient selected.
@@ -274,7 +285,7 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opaci
         is needed to be seen, this parameter needs to be set to False. 
         Default value is False (meaning the resulting plot displays opacity values)
         
-    '''
+    """
     phivals = np.arange(0, 2*np.pi, 0.01)
     mu_step = .025
     muvals = np.arange(0, 1. + mu_step, mu_step)

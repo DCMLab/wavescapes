@@ -12,9 +12,9 @@ deep_chroma_processor = chroma.DeepChromaProcessor()
 
 twelve_tones_vector_name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#','A', 'A#', 'B']
 
-#this is to correct the name found in the outputed notes from music21 parsing of symbolic data files.
-#Since this library assumes enharmonic equivalence, any note's name should be mapped to one of the twelve values
-#found in 'twelve_tones_vector_name'
+# this is to correct the name found in the outputed notes from music21 parsing of symbolic data files.
+# Since this library assumes enharmonic equivalence, any note's name should be mapped to one of the twelve values
+# found in 'twelve_tones_vector_name'
 altered_notation_dict = {
     'C-' : 'B',
     'C--': 'A#',
@@ -57,14 +57,14 @@ altered_notation_dict = {
 
 pitch_pitch_dict = {x: x for x in twelve_tones_vector_name}
 
-#In the end we want each string to match an index between 0 and 11, so it fits inside a 12-d vector.
+# In the end we want each string to match an index between 0 and 11, so it fits inside a 12-d vector.
 pitch_index_dict = {twelve_tones_vector_name[i]:i for i in range(len(twelve_tones_vector_name))}
 
-#So any pitch name given to this dict will be mapped to its cannonical form defined in 'twelve_tones_vector_name'
+# So any pitch name given to this dict will be mapped to its cannonical form defined in 'twelve_tones_vector_name'
 normalize_notation_dict = dict(altered_notation_dict,  **pitch_pitch_dict)
 
 def recursively_map_offset(stream, only_note_name=True):
-    '''
+    """
     This function recursively walks through the file's  stream's elements, 
     and whenever it encounters a note, it will append its rhytmic 
     data to the pitch and then store the resulting data structure in an array.
@@ -102,7 +102,7 @@ def recursively_map_offset(stream, only_note_name=True):
         later in the piece. 
         
     
-    '''
+    """
     res = []
     for elem in stream.recurse():
         if isinstance(elem, m21.note.Note):
@@ -115,7 +115,7 @@ def recursively_map_offset(stream, only_note_name=True):
 
 
 def remove_unpitched_tracks_from_xml_stream(xml_stream):
-    '''
+    """
     Takes care of removing drum/percussions tracks from an xml file parsed into a .
     Work only if the XML file has metadata clearly indicating parts that have a 
     "percussion" clef (or no clef at all). 
@@ -129,7 +129,7 @@ def remove_unpitched_tracks_from_xml_stream(xml_stream):
     -------
     instance of music21.stream.Stream without the percussive parts of the score
     
-    '''
+    """
     #creating a new score that will hold the pitched parts
     s = m21.stream.Score() 
     for part in m21.instrument.partitionByInstrument(xml_stream):
@@ -139,7 +139,7 @@ def remove_unpitched_tracks_from_xml_stream(xml_stream):
     return s
 
 def remove_unpitched_tracks_from_midi_file(midi_filepath):
-    '''
+    """
     Takes care of removing drum tracks from a midi filename.
     Work only if the MIDI file has metadata clearly indicating channels that are
     percussive. Does not remove channels of percussive instruments that are pitched
@@ -159,7 +159,7 @@ def remove_unpitched_tracks_from_midi_file(midi_filepath):
         span of time, this depends on the user's OS bahvior fir temporary folder. As such,
         the resulting file should be used as soone as possible, or moved to a permanet folder.
     
-    '''
+    """
     sound = pm.PrettyMIDI(midi_filepath)
     
     #getting the track indices of unpitched "percussive" tracks. 
@@ -174,10 +174,10 @@ def remove_unpitched_tracks_from_midi_file(midi_filepath):
     return temp_midi_filepath
 
 def slice_according_to_beat(pitch_offset_list, beat1_offset, beat2_offset):
-    '''
+    """
     the beat offset must be expressed as units of quarter notes. 
     Taken are all beat which at least END AFTER the beat1, and START BEFORE the beat2
-    '''
+    """
     def only_keep_pitches_in_boundaries(pitch_offset_list, beat1_offset, beat2_offset): 
         return list(filter(lambda n: n[1][1] >= beat1_offset and n[1][0] <= beat2_offset, pitch_offset_list))
 
@@ -221,13 +221,13 @@ def get_max_beat(pitch_offset_list):
     return math.ceil(max(list(map(lambda r: r[1][1], pitch_offset_list))))
 
 def pitch_class_set_vector_from_pitch_offset_list(pitch_offset_array, aw_size=0.5): #the analysis window size (aw_size) is expressed in terms of number of beat (quarter of measures in binary time signature).
-    '''
+    """
     This functions transforms a list of tuples each containing the name of the pitch
     followed by its start and end in the file into a pitch class distribution with each
     pitch class given the weight corresponding to its duration in the current slice of
     temporal size aw_size.
     
-    '''
+    """
     max_beat = get_max_beat(pitch_offset_array)
     
     if aw_size <= max_beat/2:
@@ -292,7 +292,7 @@ def trim_pcs_array(pcvs):
     return pcvs[start:end+1]
 
 def produce_pitch_class_matrix_from_filename(filepath, aw_size = 1., trim_extremities=True, remove_unpitched_tracks = False, deep_chroma = False):
-    '''
+    """
     This function takes a MIDI or XML file as a parameters and
     transforms it into "list of pitch class distribution"
     This list is modelised by a Nx12 matrix of float values, each 
@@ -350,7 +350,7 @@ def produce_pitch_class_matrix_from_filename(filepath, aw_size = 1., trim_extrem
         the pitch content from all non overlapping slices of aw_size size from the file
         given as argument.
     
-    '''
+    """
     lower_filepath = filepath.lower()
     midi_extensions = ('.mid', '.midi')
     xml_extensions = ('.mxl', '.xml', '.musicxml')
@@ -377,7 +377,7 @@ def produce_pitch_class_matrix_from_filename(filepath, aw_size = 1., trim_extrem
         pitch_offset_list = recursively_map_offset(music_stream)
         pcvs_arr = pitch_class_set_vector_from_pitch_offset_list(pitch_offset_list, aw_size)
     else:
-        #audio file input.
+        # audio file input.
         if remove_unpitched_tracks:
             msg = "'remove_unpitched_tracks' argument is meaningless on real audio. Only use it for symbolic data (MIDI/XML)."
             warn(msg)

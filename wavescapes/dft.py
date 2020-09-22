@@ -1,22 +1,24 @@
 import numpy as np
 
+
 def build_utm_from_one_row(res):
-    '''
+    """
     given a NxN matrix whose first row is the only
     one that's filled with values, this function fills
     all the above row by summing for each row's element
     the two closest element from the row below. This
     method of summing builds an upper-triangle-matrix
     whose structure represent all hierarchical level.
-    '''
+    """
     pcv_nmb = np.shape(res)[0]
     for i in range(1, pcv_nmb):
         for j in range(0, pcv_nmb-i):
             res[i][i+j] = res[0][i+j] + res[i-1][i+j-1]
     return res
 
+
 def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
-    '''
+    """
     This functions takes a list of N pitch class distributions,
     modelised by a matrix of float numbers, and apply the 
     DFT individually to all the pitch class distributions.
@@ -40,7 +42,7 @@ def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
         transformed into Fourier coefficient, or a NxNx7 complex number 
         upper triangle matrix being the fourier coefficient obtained from all
         possible slices of the original musical piece.
-    '''
+    """
     pcv_nmb, pc_nmb = np.shape(pc_mat)
     #+1 to hold room for the 0th coefficient
     coeff_nmb = int(pc_nmb/2)+1

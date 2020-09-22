@@ -41,19 +41,19 @@ If all functions and classes from this package are correctly imported, the short
 from wavescapes import single_wavescape
 
 
-single_wavescape(filepath = 'Bach Prelude in C Major (BWV 846).mid',\
+single_wavescape(filepath = 'Bach Prelude in C Major (BWV 846).mid',
 				 #plot's width in pixels
-				 individual_width = 500,\
+				 individual_width = 500,
 				  #length of the shortest segments of the wavescapes in terms of quarter note
-				 aw_size = 1.,\
+				 aw_size = 1.,
 				 #the coefficient to be displayed
-				 coefficient=3,\
+				 coefficient=3,
 				 #amount of segments per tick drawn on the horizontal axis
-				 tick_ratio=4,\
+				 tick_ratio=4,
 				 #no offset introduced for the position of the ticks, the value 0 also indicates the tick numbers have to start at 1 and not 0.
-				 tick_offset=0,\
+				 tick_offset=0,
 				 #saves the figure drawn as a PNG image.
-				 save_label='bach_3rd_coeff_wavescape.png'\
+				 save_label='bach_3rd_coeff_wavescape.png'
 				 )
 ```
 

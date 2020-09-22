@@ -1,12 +1,12 @@
 from warnings import warn
 import math
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon, Circle
-from matplotlib.ticker import MultipleLocator, IndexLocator,FuncFormatter
+from matplotlib.ticker import IndexLocator,FuncFormatter
 
 SQRT_OF_THREE = math.sqrt(3)
+
 
 def rgb_to_hex(rgb):
     if type(rgb) is str and rgb[0] == '#' and len(rgb) > 6:
@@ -22,6 +22,7 @@ def rgb_to_hex(rgb):
     else:
         raise Exception('Cannot convert RGB tuple to hex value if the value given is neither in the RGB or the RGBA format.')
 
+
 def coeff_nbr_to_label(k):
     if type(k) == str:
         k = int(k)
@@ -33,7 +34,8 @@ def coeff_nbr_to_label(k):
         return '%drd'%k
     else:
         return '%dth'%k
-    
+
+
 def compute_plot_height(width, mat_dim, drawing_primitive):
     drawing_primitive = drawing_primitive.lower()
     if drawing_primitive == Wavescape.HEXAGON_STR:
@@ -44,7 +46,8 @@ def compute_plot_height(width, mat_dim, drawing_primitive):
         return width
     else:
         raise Exception('Unknown drawing primitive: %s'%drawing_primitive)
-        
+
+
 def compute_bounding_box_limits(mat_dim, start, end, width, height, primitive_half_width):
     #this is invariant.
     bottom = -height/2.
@@ -60,6 +63,7 @@ def compute_bounding_box_limits(mat_dim, start, end, width, height, primitive_ha
         right = left + subzone_width
         return (left,right,bottom+subzone_height,bottom)
 
+
 def get_primitive_height(primitive_name, primitive_width):
     primitive_name = primitive_name.lower()
     if primitive_name == Wavescape.HEXAGON_STR:
@@ -70,7 +74,8 @@ def get_primitive_height(primitive_name, primitive_width):
         return primitive_width * SQRT_OF_THREE
     else:
         raise Exception('Unknown drawing primitive: %s'%primitive_name)
-    
+
+
 class DiamondPrimitive(object):
     def __init__(self, x, y, width, height, color, bottom_diamond):
         self.half_width = width/2.
@@ -95,6 +100,7 @@ class DiamondPrimitive(object):
                          facecolor = curr_color,
                          edgecolor=edgecolor,
                          linewidth=stroke if stroke else None)
+
 
 class HexagonPrimitive(object):
     def __init__(self, x, y, width, color):
@@ -122,7 +128,8 @@ class HexagonPrimitive(object):
                          facecolor = curr_color,
                          edgecolor= edgecolor,
                          linewidth= stroke if stroke else None)
-    
+
+
 def new_primitive_with_coords(curr_color, x, y, hws, hhs, primitive_name, primitive_width, primitive_height):
     '''
     Generates the primitive at the right place in the final plot according to the parameter chosen.
@@ -146,7 +153,8 @@ def new_primitive_with_coords(curr_color, x, y, hws, hhs, primitive_name, primit
                           primitive_width, primitive_height, curr_color, y == 0)
     else:
         raise Exception('Unknown drawing primitive: %s'%primitive_name)
-    
+
+
 class Wavescape(object):
     '''
     This class represent an object that holds the attributes 
@@ -219,7 +227,8 @@ class Wavescape(object):
             if lo == hi:
                 raise Exception('Highlight\'s start index (%s) should not be equal to its end index'%(str(lo)))
             if lo > self.mat_dim or hi > self.mat_dim:
-                raise Exception('Subpart highlights\' indices cannot be above the number of element at the base of the wavescape (%d)'%self.mat_dim)
+                raise Exception('Subpart highlights\' indices cannot be above the number of element at the base of the '
+                                'wavescape (%d)'%self.mat_dim)
             tri_width = (hi-lo) * unit_width
             tri_height = compute_plot_height(tri_width, hi-lo, self.drawing_primitive)
             xl = (lo-.5)*unit_width - self.width/2.
@@ -252,11 +261,12 @@ class Wavescape(object):
             for x in range(y, self.mat_dim):
                 curr_color = rgb_to_hex(self.utm[y][x])
                 if curr_color:
-                    self.matrix_primitive[y][x] = new_primitive_with_coords(curr_color, x, y, half_width_shift,\
-                                                                            half_height_shift, self.drawing_primitive,\
+                    self.matrix_primitive[y][x] = new_primitive_with_coords(curr_color, x, y, half_width_shift,
+                                                                            half_height_shift, self.drawing_primitive,
                                                                             primitive_width, primitive_height) 
 
-    def draw(self, ax=None, tick_ratio = None, tick_offset=None, tick_factor=1, subparts_highlighted = None, indicator_size = None, add_line = None, label=None, label_size=None):
+    def draw(self, ax=None, tick_ratio = None, tick_offset=None, tick_factor=1, subparts_highlighted = None,
+             indicator_size = None, add_line = None, label=None, label_size=None):
         '''
         After being called on a properly initialised instance of a Wavescape object,
         this method draws the visual plot known as "wavescape" and generate a 
@@ -427,8 +437,7 @@ class Wavescape(object):
                 #array of primitive is by default filled with None value, this avoid that.
                 if element:
                     ax.add_patch(element.draw(stroke=add_line))
-                             
-        
+
         if indicator_size:
             ind_width = (width if self.drawing_primitive != self.HEXAGON_STR else width + 2) * indicator_size
             mid_size = int(ind_width / 60.)
@@ -459,8 +468,9 @@ class Wavescape(object):
                     x = 1/float(2**(n+1)) + m/float(2**n)
                     y = (2**n - 1)/float(2**n) - m/float(2**(n-1)) - 1/2.
                     for i in [-1, 1]:
-                        ax.add_patch(Circle((i*x*width-primitive_half_width, y*height), radius=p['size'], facecolor=p['facecolor'], \
-                                                  edgecolor=p['edgecolor'], linewidth=stroke_width))
+                        ax.add_patch(Circle((i*x*width-primitive_half_width, y*height), radius=p['size'],
+                                            facecolor=p['facecolor'],
+                                            edgecolor=p['edgecolor'], linewidth=stroke_width))
 
         plt.autoscale(enable = True)
         
@@ -479,10 +489,14 @@ class Wavescape(object):
             
             if tick_offset is not None:
                 maj_loc_offset = (tick_offset+subpart_offset)*indiv_w
-                major_ticks_formatter = lambda x, pos: '{0:g}'.format(math.ceil((x + self.width/2.)/scale_x)*tick_factor + (1 if tick_offset < 1 else 0))
+                major_ticks_formatter = lambda x, pos: '{0:g}'.format(
+                    math.ceil((x + self.width / 2.) / scale_x) * tick_factor + (1 if tick_offset < 1 else 0)
+                )
             else:
                 maj_loc_offset = subpart_offset*indiv_w
-                major_ticks_formatter = lambda x, pos: '{0:g}'.format(math.ceil((x + self.width/2.)/scale_x)*tick_factor)
+                major_ticks_formatter = lambda x, pos: '{0:g}'.format(
+                    math.ceil((x + self.width/2.)/scale_x)*tick_factor
+                )
             
             ticks_x = FuncFormatter(major_ticks_formatter)
             ax.tick_params(which='major', length=self.width/50., labelsize=labelsize)
@@ -513,7 +527,8 @@ class Wavescape(object):
                 ax.add_patch(pat)
 
         #whether a subwavescape is drawn will influence the values returned by this function.
-        bb_l, bb_r, bb_t, bb_b = compute_bounding_box_limits(self.matrix_primitive.shape[0], start_primitive_idx, utm_w, self.width, self.height, primitive_half_width)
+        bb_l, bb_r, bb_t, bb_b = compute_bounding_box_limits(self.matrix_primitive.shape[0], start_primitive_idx, utm_w,
+                                                             self.width, self.height, primitive_half_width)
         
         #needed to account for line_width in the plot's size
         if add_line:
@@ -525,7 +540,8 @@ class Wavescape(object):
             new_height = np.abs(bb_b - bb_t)
             x_pos = (new_width/20.) + bb_l
             y_pos =  bb_t - (new_height/20.) 
-            ax.annotate(label, (x_pos, y_pos), size=labelsize, annotation_clip=False, horizontalalignment='left', verticalalignment='top')
+            ax.annotate(label, (x_pos, y_pos), size=labelsize, annotation_clip=False, horizontalalignment='left',
+                        verticalalignment='top')
             
         #remove top and bottom margins 
         ax.set_ylim(bottom=bb_b, top=bb_t)
