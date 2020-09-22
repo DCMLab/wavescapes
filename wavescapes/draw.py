@@ -4,9 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon, Circle
 from matplotlib.ticker import IndexLocator,FuncFormatter
-
 SQRT_OF_THREE = math.sqrt(3)
-
 
 def rgb_to_hex(rgb):
     if type(rgb) is str and rgb[0] == '#' and len(rgb) > 6:
@@ -36,16 +34,16 @@ def coeff_nbr_to_label(k):
         return '%dth'%k
 
 
-def compute_plot_height(width, mat_dim, drawing_primitive):
-    drawing_primitive = drawing_primitive.lower()
-    if drawing_primitive == Wavescape.HEXAGON_STR:
+def compute_plot_height(width, mat_dim, primitive):
+    primitive = primitive.lower()
+    if primitive == Wavescape.HEXAGON_STR:
         return Wavescape.HEXAGON_PLOT_HEIGHT(width, mat_dim)
-    elif drawing_primitive ==  Wavescape.RHOMBUS_STR:
+    elif primitive ==  Wavescape.RHOMBUS_STR:
         return (width/2.) * SQRT_OF_THREE
-    elif drawing_primitive ==  Wavescape.DIAMOND_STR:
+    elif primitive ==  Wavescape.DIAMOND_STR:
         return width
     else:
-        raise Exception('Unknown drawing primitive: %s'%drawing_primitive)
+        raise Exception('Unknown drawing primitive: %s'%primitive)
 
 
 def compute_bounding_box_limits(mat_dim, start, end, width, height, primitive_half_width):
@@ -166,11 +164,11 @@ class Wavescape(object):
         upper triangle matrix holding color values as tuples of 3 (RGB) or 4 (RGBA) 8 bit integers. 
         Holds the color information and their relevant informations to draw the plot.
         
-    pixel_width : int
+    width : int
         the width in pixels of the plot. It needs to be at least twice as big as the shape of the 
         upper triangle matrix. The height of the plot is defined by the drawing primitive chosen.
         
-    drawing_primitive : {'diamond', 'rhombus', 'hexagon'} , optional 
+    primitive : {'diamond', 'rhombus', 'hexagon'} , optional 
         the drawing shape that forms a single colored element from the plot. Three primitives are 
         currently available:
           -'diamond': diamond whose height is twice its width
@@ -191,10 +189,10 @@ class Wavescape(object):
     HEXAGON_STR = 'hexagon'
     ALL_PRIMITIVE_SUPPORTED = [DIAMOND_STR, RHOMBUS_STR, HEXAGON_STR]
     
-    def __init__(self, utm, pixel_width, drawing_primitive='rhombus'):
+    def __init__(self, utm, width, primitive='rhombus'):
         self.utm = utm
-        self.width = pixel_width
-        self.drawing_primitive = drawing_primitive
+        self.width = width
+        self.primitive = primitive
         
         mat_dim, mat_dim_other_axis, mat_depth = utm.shape
         if mat_dim != mat_dim_other_axis:
@@ -208,11 +206,11 @@ class Wavescape(object):
         #building a matrix with None to hold the element object for drawing them later.
         self.matrix_primitive = np.full((mat_dim, mat_dim), None, object)
         
-        if drawing_primitive.lower() in Wavescape.ALL_PRIMITIVE_SUPPORTED:
-            self.height = compute_plot_height(self.width, mat_dim, drawing_primitive)
+        if primitive.lower() in Wavescape.ALL_PRIMITIVE_SUPPORTED:
+            self.height = compute_plot_height(self.width, mat_dim, primitive)
             self.generate_primitives()
         else:
-            raise Exception('Unkown drawing primitive: %s'%drawing_primitive)
+            raise Exception('Unkown drawing primitive: %s'%primitive)
             
     def generate_highlights(self, unit_width, linewidth):
         '''
@@ -230,7 +228,7 @@ class Wavescape(object):
                 raise Exception('Subpart highlights\' indices cannot be above the number of element at the base of the '
                                 'wavescape (%d)'%self.mat_dim)
             tri_width = (hi-lo) * unit_width
-            tri_height = compute_plot_height(tri_width, hi-lo, self.drawing_primitive)
+            tri_height = compute_plot_height(tri_width, hi-lo, self.primitive)
             xl = (lo-.5)*unit_width - self.width/2.
             yb = -self.height/2.
             xr = (hi-.5)*unit_width - self.width/2.
@@ -255,17 +253,17 @@ class Wavescape(object):
         half_width_shift = self.width/2.
         half_height_shift = self.height/2.
         primitive_width = self.width/float(self.mat_dim)
-        primitive_height = get_primitive_height(self.drawing_primitive, primitive_width)
+        primitive_height = get_primitive_height(self.primitive, primitive_width)
         
         for y in range(self.mat_dim):
             for x in range(y, self.mat_dim):
                 curr_color = rgb_to_hex(self.utm[y][x])
                 if curr_color:
                     self.matrix_primitive[y][x] = new_primitive_with_coords(curr_color, x, y, half_width_shift,
-                                                                            half_height_shift, self.drawing_primitive,
+                                                                            half_height_shift, self.primitive,
                                                                             primitive_width, primitive_height) 
 
-    def draw(self, ax=None, tick_ratio = None, tick_offset=None, tick_factor=1, subparts_highlighted = None,
+    def draw(self, ax=None, aw_per_tick = None, tick_offset=0, tick_start=0, tick_factor=1, subparts_highlighted = None,
              indicator_size = None, add_line = None, label=None, label_size=None):
         '''
         After being called on a properly initialised instance of a Wavescape object,
@@ -282,30 +280,36 @@ class Wavescape(object):
             be drawn in the same figure, or if the plot needs to be combined to others.
             Default value is None.
         
-        tick_ratio: numeric value, optional
-            Ratio of tick per elements of the lowest level in the wavescape. If tick_ratio has value 1,
+        aw_per_tick: numeric value, optional
+            Ratio of tick per elements of the lowest level in the wavescape. If aw_per_tick has value 1,
             one horizontal axis tick will be drawn per element at the lowest hierarchical level of the wavescape, 
             if it has value 2, then a tick will be drawn each two elements and so forth. For the ticks to represent the bar numbers,
             a pre-existing knowledge of the time signature of the musical piece is required. (for instance, if a piece is in 4/4,
-            and the analysis window has a size of one quarter note, then tick_ratio needs to have value 4 for the
+            and the analysis window has a size of one quarter note, then aw_per_tick needs to have value 4 for the
             ticks to correspond to bar numbers)
             Default value is None (meaning no ticks are drawn)
             
         tick_offset: int, optional
-            offset value for the tick drawn according to the 'tick_ratio' parameter. This is done
+            offset value for the tick drawn according to the 'aw_per_tick' parameter. This is done
             so that musical pieces with 0th measure can have tick accurately representing the source
             material's bar numbers. Like the tick ratio, this number is relative to the analysis window's
             size and requires a pre-existing knowledge of the score.
-            Its value must be higher or equal to 0 but strictly lower than tick_ratio.
+            Its value must be higher or equal to 0 but strictly lower than aw_per_tick.
             If it has value "0", the first tick of the plot will be set to the value of 1. 
             For having the first tick of the plot set to the value of 0, leave that parameter to
-            None and have a coherent value for tick_ratio
-            Default value is None (meaning no tick offset). 
+            None and have a coherent value for aw_per_tick
+            Default value is 0 (meaning no tick offset). 
+        
+        tick_start: int, optional
+            Indicates at which number to start the tick numbering. We recommand, for
+            classical score, to put the value "1", as most scores starts numbering their bars
+            with 1 instead of 0.
+            Default value is 0.
         
         tick_factor: float, optional
             Multiply the major ticks numbers displayed on the x-axis by a constant.
             Can be useful for very large pieces, where displaying a single tick on each
-            bottom row element would make the x-axis hard to read. By increasing the tick_ratio,
+            bottom row element would make the x-axis hard to read. By increasing the aw_per_tick,
             and giving this parameter a certain value, it is possible to display less ticks while 
             still keeping the right indicative numbers with respect to the unit system chosen. 
             Default value is 1.0, (meaning the value displayed is consistent with the number of ticks, with 
@@ -359,16 +363,19 @@ class Wavescape(object):
         if self.matrix_primitive is None or utm_w < 1 or utm_h < 1:
             raise Exception("Cannot draw when there is nothing to draw.")
         
-        if tick_ratio is not None: 
+        if aw_per_tick is not None: 
             
-            if tick_ratio < 1 or type(tick_ratio) is not int:
-                raise Exception("'tick_ratio' must be an integer greater or equal to 1")
+            if aw_per_tick < 1 or type(aw_per_tick) is not int:
+                raise Exception("'aw_per_tick' must be an integer greater or equal to 1")
             
             if tick_factor <= 0 or (type(tick_factor) is not int and type(tick_factor) is not float):
-                raise Exception("'tick_factor' must be a numeric value greater to 0")
+                raise Exception("'tick_factor' must be a numeric value greater than 0")
+
+            if tick_start < 0 or type(tick_start) is not int:
+                raise Exception("'tick_start' must be a numeric value greater than or equal to 0")
             
             #argument start_offseet is only meaningless if there is tick ratio involved in the plotting
-            if tick_offset is not None and (type(tick_offset) is not int or tick_offset < 0 or tick_offset > tick_ratio):
+            if type(tick_offset) is not int or tick_offset < 0 or tick_offset > aw_per_tick:
                 raise Exception("Stat offset needs to be a positive integer that is smaller or equal to the tick ratio")
         
         
@@ -408,8 +415,8 @@ class Wavescape(object):
                 self.subparts=None
                 
                 #need to adapt start offset
-                if tick_ratio:
-                    subpart_offset = -(start_primitive_idx % tick_ratio)
+                if aw_per_tick:
+                    subpart_offset = -(start_primitive_idx % aw_per_tick)
                 
             elif hl_dimensions == 2:
                 #wavescape fullpart conserved, only has to draw highlights on it.
@@ -439,7 +446,7 @@ class Wavescape(object):
                     ax.add_patch(element.draw(stroke=add_line))
 
         if indicator_size:
-            ind_width = (width if self.drawing_primitive != self.HEXAGON_STR else width + 2) * indicator_size
+            ind_width = (width if self.primitive != self.HEXAGON_STR else width + 2) * indicator_size
             mid_size = int(ind_width / 60.)
             eigth_size = int(mid_size /4.)
             quart_size = eigth_size * 3
@@ -474,29 +481,19 @@ class Wavescape(object):
 
         plt.autoscale(enable = True)
         
-        if not tick_ratio and not label and label_size:
+        if not aw_per_tick and not label and label_size:
             msg = "'label_size' argument provided when nothing needs to be labeled on the figure."
             warn(msg)
             
         labelsize = label_size if label_size else self.width/30.
         
-        if tick_ratio:
+        if aw_per_tick:
             indiv_w = primitive_half_width*2
             
-            scale_x = indiv_w * tick_ratio
-            major_ticks_formatter = None
-            maj_loc_offset = None
-            
-            if tick_offset is not None:
-                maj_loc_offset = (tick_offset+subpart_offset)*indiv_w
-                major_ticks_formatter = lambda x, pos: '{0:g}'.format(
-                    math.ceil((x + self.width / 2.) / scale_x) * tick_factor + (1 if tick_offset < 1 else 0)
-                )
-            else:
-                maj_loc_offset = subpart_offset*indiv_w
-                major_ticks_formatter = lambda x, pos: '{0:g}'.format(
-                    math.ceil((x + self.width/2.)/scale_x)*tick_factor
-                )
+            scale_x = indiv_w * aw_per_tick
+            maj_loc_offset = (tick_offset+subpart_offset)*indiv_w
+
+            major_ticks_formatter = lambda x, pos: '{0:g}'.format((math.ceil((x + self.width / 2.) / scale_x) * tick_factor + (0 if tick_offset < 1 else -1))+tick_start)
             
             ticks_x = FuncFormatter(major_ticks_formatter)
             ax.tick_params(which='major', length=self.width/50., labelsize=labelsize)
@@ -504,7 +501,7 @@ class Wavescape(object):
             
             ax.xaxis.set_major_formatter(ticks_x)
             number_of_ticks = self.width/scale_x
-            number_of_bars = (utm_w-start_primitive_idx)/tick_ratio
+            number_of_bars = (utm_w-start_primitive_idx)/aw_per_tick
             major_tick_base = scale_x*round(number_of_ticks/(8 if number_of_bars > 8 else number_of_ticks))
             ax.xaxis.set_major_locator(IndexLocator(base=major_tick_base, offset=maj_loc_offset))
             
@@ -517,9 +514,6 @@ class Wavescape(object):
             ax.spines['left'].set_visible(False)
             plt.yticks([])
         else:
-            if tick_offset is not None and tick_offset != 0:
-                msg="'tick_offset' has no effect if 'tick_ratio' is not provided."
-                warn(msg)
             plt.axis('off')
         
         if self.subparts:

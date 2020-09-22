@@ -49,7 +49,7 @@ single_wavescape(filepath = 'Bach Prelude in C Major (BWV 846).mid',
 				 #the coefficient to be displayed
 				 coefficient=3,
 				 #amount of segments per tick drawn on the horizontal axis
-				 tick_ratio=4,
+				 aw_per_tick=4,
 				 #no offset introduced for the position of the ticks, the value 0 also indicates the tick numbers have to start at 1 and not 0.
 				 tick_offset=0,
 				 #saves the figure drawn as a PNG image.

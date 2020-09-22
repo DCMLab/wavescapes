@@ -34,7 +34,7 @@ def rgb_to_saturated_rbg(rgb_value, saturation_val):
     return (apply_sat(r), apply_sat(g), apply_sat(b))
 
 
-def circular_hue(angle, magnitude=1., output_rgba=True, no_opacity_mapping=False, no_hue_mapping=False):
+def circular_hue(angle, magnitude=1., output_rgba=True, ignore_magnitude=False, ignore_phase=False):
     # np.angle returns value in the range of [-pi : pi], where the circular hue is defined for
     # values in range [0 : 2pi]. Rather than shifting by a pi, the solution is for the negative
     # part to be mapped to the [pi: 2pi] range which can be achieved by a modulo operation.
@@ -63,16 +63,16 @@ def circular_hue(angle, magnitude=1., output_rgba=True, no_opacity_mapping=False
     red = lambda a: step_function_quarter_pi_activation(math.pi*4/3, math.pi/3, a)
     gray = lambda v: int(0xff * (1-v))
     value = None
-    if no_opacity_mapping and not no_hue_mapping:
+    if ignore_magnitude and not ignore_phase:
         value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)))
         if output_rgba:
             value = (value[0], value[1], value[2], stand(1))
-    elif no_hue_mapping and not no_opacity_mapping:
+    elif ignore_phase and not ignore_magnitude:
         g = gray(magnitude)
         value = (g, g, g)
         if output_rgba:
             value = (value[0], value[1], value[2], g)
-    elif no_hue_mapping and no_opacity_mapping:
+    elif ignore_phase and ignore_magnitude:
         value = (0xff, 0xff, 0xff)
         if output_rgba:
             value = (0xff, 0xff, 0xff, 0xff)
@@ -85,7 +85,7 @@ def circular_hue(angle, magnitude=1., output_rgba=True, no_opacity_mapping=False
 
 
 def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_raw_values=False,
-                          no_opacity_mapping=False, no_hue_mapping=False):
+                          ignore_magnitude=False, ignore_phase=False):
     """
     Converts an upper triangle matrix filled with Fourier coefficients into 
     an upper triangle matrix filled with color values that serves as the mathematical model
@@ -123,11 +123,11 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
             raw magnitude values cannot be mapped in 
         Default value is '0c'
                       
-    no_opacity_mapping : bool, optional 
+    ignore_magnitude : bool, optional 
         Determines whether to remove the opacity mapping from the color mapping
         Default value is False (meaning opacity mapping is enabled by default)
 
-    no_hue_mapping : bool, optional 
+    ignore_phase : bool, optional 
         Determines whether to remove the hue mapping from the color mapping
         Default value is False (meaning hue mapping is enabled by default)
         
@@ -204,8 +204,8 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
                 if np.any(curr_value):
                     angle, magn = zeroth_coeff_cm(curr_value, coeff)
                     res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
-                                             no_opacity_mapping=no_opacity_mapping,
-                                             no_hue_mapping=no_hue_mapping) if not output_raw_values else (angle, magn)
+                                             ignore_magnitude=ignore_magnitude,
+                                             ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
     
     elif magn_stra == 'boost':
         angle_magn_mat = np.full((shape_x, shape_y, 2), 0., np.float64)
@@ -220,14 +220,14 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
         boosting_factor = 1./float(max_magn)
         msg = 'Max magnitude of %lf observed for coeff. number %d, boosting all magnitudes by %.2lf%% of their ' \
               'original values'%(max_magn, coeff,100*boosting_factor)
-        warn(msg)
+        print(msg)
         for y in range(shape_y):
             for x in range(shape_x):
                 angle, magn = angle_magn_mat[y][x]
                 if np.any([angle, magn]):
                     res[y][x] = circular_hue(angle, magnitude=magn*boosting_factor, output_rgba=output_rgba,
-                                             no_opacity_mapping=no_opacity_mapping,
-                                             no_hue_mapping=no_hue_mapping) if not output_raw_values else (angle, magn)
+                                             ignore_magnitude=ignore_magnitude,
+                                             ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
                 
     elif magn_stra == 'max':
         #arr[:,:,coeff] is a way to select only one coefficient from the tensor of all 6 coefficients 
@@ -238,8 +238,8 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
                 if np.any(curr_value):
                     angle, magn = max_cm(curr_value, coeff, max_magn)
                     res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
-                                             no_opacity_mapping=no_opacity_mapping,
-                                             no_hue_mapping=no_hue_mapping) if not output_raw_values else (angle, magn)
+                                             ignore_magnitude=ignore_magnitude,
+                                             ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
                 
     elif magn_stra == 'max_weighted':
         for y in range(shape_y):
@@ -250,8 +250,8 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
                 if np.any(curr_value):
                     angle, magn = max_cm(curr_value, coeff, max_magn)
                     res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
-                                             no_opacity_mapping=no_opacity_mapping,
-                                             no_hue_mapping=no_hue_mapping) if not output_raw_values else (angle, magn)
+                                             ignore_magnitude=ignore_magnitude,
+                                             ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
     
     elif magn_stra == 'raw':
         for y in range(shape_y):
@@ -262,8 +262,8 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
                     angle = np.angle(value)
                     magn = np.abs(value)
                     res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
-                                             no_opacity_mapping=no_opacity_mapping,
-                                             no_hue_mapping=no_hue_mapping) if not output_raw_values else (angle, magn)
+                                             ignore_magnitude=ignore_magnitude,
+                                             ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
     else:
         raise Exception('Unknown option for magn_stra')
     

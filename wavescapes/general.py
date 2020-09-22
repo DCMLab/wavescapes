@@ -8,10 +8,10 @@ from .color import complex_utm_to_ws_utm, circular_hue
 from .draw import Wavescape, compute_plot_height, rgb_to_hex, coeff_nbr_to_label
 
 
-def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=None,
+def single_wavescape(filepath, width, coefficient, aw_size=1, save_label=None,
                      remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,
-                     magn_stra='0c', output_rgba=False, drawing_primitive=Wavescape.RHOMBUS_STR,
-                     tick_ratio=None, tick_offset=None, tick_factor=1, no_opacity_mapping=False, no_hue_mapping=False,
+                     magn_stra='0c', output_rgba=False, primitive=Wavescape.RHOMBUS_STR,
+                     aw_per_tick=None, tick_offset=0, tick_start=0, tick_factor=1, ignore_magnitude=False, ignore_phase=False,
                      indicator_size=None, add_line=False, subparts_highlighted=None, label=None, label_size=None,
                      ax=None):
     """
@@ -26,7 +26,7 @@ def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=N
     filepath: str
         path to the MIDI or XML file that gets visualized.
     
-    pixel_width: int
+    width: int
         the width in pixel of the wavescape. The height is dependant on both the width and
         the drawing primitive used, and as such, cannot be decided by the user of this function
     
@@ -63,17 +63,21 @@ def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=N
         see the doc 'complex_utm_to_ws_utm' for information on this parameter
         Default value is '0c'
     
-    drawing_primitive: str, optional
+    primitive: str, optional
         see the doc of the constructor of the class 'Wavescape' for information on this parameter.
         Default value is Wavescape.RHOMBUS_STR (i.e. 'rhombus')
     
-    tick_ratio: int, optional 
+    aw_per_tick: int, optional 
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is None (meaning no ticks are drawn)
     
     tick_offset: int, optional
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
-        Default value is None (meaning ticks number start at 0)
+        Default value is 0
+
+    tick_start: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 0
         
     tick_factor: float, optional
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
@@ -110,9 +114,9 @@ def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=N
                                                       remove_unpitched_tracks=remove_unpitched_tracks)
     fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat, build_utm=True)
     color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba,
-                                      no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
-    ws = Wavescape(color_mat, pixel_width=pixel_width, drawing_primitive=drawing_primitive)
-    ws.draw(indicator_size=indicator_size, tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor,
+                                      ignore_magnitude=ignore_magnitude, ignore_phase=ignore_phase)
+    ws = Wavescape(color_mat, width=width, primitive=primitive)
+    ws.draw(indicator_size=indicator_size, aw_per_tick=aw_per_tick, tick_start=tick_start, tick_offset=tick_offset, tick_factor=tick_factor,
             add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
     if save_label:
         plt.savefig(save_label, transparent=output_rgba)
@@ -121,8 +125,8 @@ def single_wavescape(filepath, pixel_width, coefficient, aw_size=1, save_label=N
 # generate all plots in one image
 def all_wavescapes(filepath,individual_width, save_label=None,
                    aw_size=1, remove_unpitched_tracks=False, deep_chroma=False, trim_extremities=True,
-                   magn_stra = '0c', output_rgba = False, drawing_primitive=Wavescape.RHOMBUS_STR,
-                   tick_ratio=None, tick_offset=None, tick_factor=1.,no_opacity_mapping=False, no_hue_mapping=False,
+                   magn_stra = '0c', output_rgba = False, primitive=Wavescape.RHOMBUS_STR,
+                   aw_per_tick=None, tick_offset=0, tick_start=0, tick_factor=1.,ignore_magnitude=False, ignore_phase=False,
                    indicator_size=None, add_line=False, subparts_highlighted = None, label_size=None):
 
     """
@@ -181,17 +185,21 @@ def all_wavescapes(filepath,individual_width, save_label=None,
         see the doc 'complex_utm_to_ws_utm' for information on this parameter
         Default value is '0c'
     
-    drawing_primitive: str, optional
+    primitive: str, optional
         see the doc of the constructor of the class 'Wavescape' for information on this parameter.
         Default value is Wavescape.RHOMBUS_STR (i.e. 'rhombus')
     
-    tick_ratio: int, optional 
+    aw_per_tick: int, optional 
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is None (meaning no ticks are drawn)
     
     tick_offset: int, optional
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is None (meaning ticks numbers start at 0)
+
+    tick_start: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 0
         
     tick_factor: float, optional
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
@@ -222,31 +230,31 @@ def all_wavescapes(filepath,individual_width, save_label=None,
 
     dpi = 96  # (most common dpi values for computers' screen)
     total_width = (3.1*individual_width)/dpi
-    total_height = (2.1*compute_plot_height(individual_width, fourier_mat.shape[0], drawing_primitive))/dpi
+    total_height = (2.1*compute_plot_height(individual_width, fourier_mat.shape[0], primitive))/dpi
     if not save_label:
         fig = plt.figure(figsize=(total_width, total_height), dpi=dpi)
         
     for i in range(1, 7):
         color_utm = complex_utm_to_ws_utm(fourier_mat, coeff=i, magn_stra=magn_stra, output_rgba=output_rgba,
-                                          no_opacity_mapping=no_opacity_mapping, no_hue_mapping=no_hue_mapping)
-        w = Wavescape(color_utm, pixel_width=individual_width, drawing_primitive=drawing_primitive)
+                                          ignore_magnitude=ignore_magnitude, ignore_phase=ignore_phase)
+        w = Wavescape(color_utm, width=individual_width, primitive=primitive)
         if save_label:
             w.draw(indicator_size=indicator_size, add_line=add_line,
-                   tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor,
+                   aw_per_tick=aw_per_tick, tick_offset=tick_offset, tick_start=tick_start, tick_factor=tick_factor,
                    subparts_highlighted=subparts_highlighted, label_size=label_size)
             plt.tight_layout()
             plt.savefig(save_label+str(i)+'.png', bbox_inches='tight', transparent=output_rgba)
         else:
             ax = fig.add_subplot(2, 3, i, aspect='equal')  # TODO: what if fig was not initialised above?
             w.draw(ax=ax, indicator_size=indicator_size, add_line=add_line,
-                   tick_ratio=tick_ratio, tick_offset=tick_offset, tick_factor=tick_factor,
+                   aw_per_tick=aw_per_tick, tick_offset=tick_offset, tick_start=tick_start, tick_factor=tick_factor,
                    label=coeff_nbr_to_label(i) + ' coeff.', subparts_highlighted=subparts_highlighted,
                    label_size=label_size)
             
     plt.tight_layout()
 
 
-def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opacity_mapping=False, no_hue_mapping=False):
+def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, ignore_magnitude=False, ignore_phase=False):
     """
     Draw the circle color space defined by the color mapping used in wavescapes.
     Given a dict of labels/pitch-class vector, and list of coefficient to visualize,
@@ -279,7 +287,7 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opaci
         number contained in the dict 'pcv_dict' still apply if a single coefficient is selected with this parameter.
         Default value is None.
 
-    no_opacity_mapping: bool, optional
+    ignore_magnitude: bool, optional
         Indicates whether the resulting plot needs to display the magnitude as opacity mapping from the center to
         the outward part of the circle. If only the phase, and thus the hue, of a certain musical structure
         is needed to be seen, this parameter needs to be set to False. 
@@ -296,15 +304,15 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, no_opaci
     #generating the color corresponding to each point.
     color_arr = []
     for phi, mu in cartesian_polar:
-        if no_hue_mapping:
-            if no_opacity_mapping:
+        if ignore_phase:
+            if ignore_magnitude:
                 hexa = '#ffffff'
             else:
                 stand = lambda v: int(0xff * (1-v))
                 g = stand(mu)
                 hexa = rgb_to_hex([g,g,g])
         else:
-            hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, output_rgba=no_opacity_mapping))
+            hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, output_rgba=ignore_magnitude))
             
         color_arr.append(hexa)
         
