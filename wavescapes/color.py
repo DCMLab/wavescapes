@@ -107,7 +107,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
             (which corresponds to the sum of the weight of each pitch class). This ensures only
             pitch class distribution whose periodicity exactly match the coefficient's periodicity can
             reach the value of 1.
-        - 'boost' : based on the 0c normalisation but "boost" the space of all normalized magnitude so 
+        - 'post_norm' : based on the 0c normalisation but "boost" the space of all normalized magnitude so 
                     the maximum magnitude observable is set to the max opacity value. This means that if any PCV in the
                     utm given as input reaches the 0c normalized magnitude of 1, this parameter acts like
                     the '0c' one. This magn_strat should be used with audio input mainly, as seldom PCV derived 
@@ -207,7 +207,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
                                              ignore_magnitude=ignore_magnitude,
                                              ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
     
-    elif magn_stra == 'boost':
+    elif magn_stra == 'post_norm':
         angle_magn_mat = np.full((shape_x, shape_y, 2), 0., np.float64)
         for y in range(shape_y):
             for x in range(shape_x):
@@ -218,7 +218,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
                     angle_magn_mat[y][x][1] = magn
         max_magn = np.max(angle_magn_mat[:,:,1])
         boosting_factor = 1./float(max_magn)
-        msg = 'Max magnitude of %lf observed for coeff. number %d, boosting all magnitudes by %.2lf%% of their ' \
+        msg = 'Max magnitude of %lf observed for coeff. number %d, post normalizing all magnitudes by %.2lf%% of their ' \
               'original values'%(max_magn, coeff,100*boosting_factor)
         print(msg)
         for y in range(shape_y):
