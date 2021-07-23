@@ -116,10 +116,11 @@ def single_wavescape(filepath, width, coefficient, aw_size=1, save_label=None,
     color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba,
                                       ignore_magnitude=ignore_magnitude, ignore_phase=ignore_phase)
     ws = Wavescape(color_mat, width=width, primitive=primitive)
-    ws.draw(indicator_size=indicator_size, aw_per_tick=aw_per_tick, tick_start=tick_start, tick_offset=tick_offset, tick_factor=tick_factor,
+    ax = ws.draw(indicator_size=indicator_size, aw_per_tick=aw_per_tick, tick_start=tick_start, tick_offset=tick_offset, tick_factor=tick_factor,
             add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
     if save_label:
         plt.savefig(save_label, transparent=output_rgba)
+    return ax
 
 
 # generate all plots in one image

@@ -512,6 +512,8 @@ class Wavescape(object):
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)
+            #temporary, for the paper output.
+            plt.xlabel("$\it{Time\:(measures)}$", size=labelsize)
             plt.yticks([])
         else:
             plt.axis('off')
@@ -541,3 +543,4 @@ class Wavescape(object):
         ax.set_ylim(bottom=bb_b, top=bb_t)
         ax.set_xlim(left=bb_l, right=bb_r)
         plt.tight_layout()
+        return ax
