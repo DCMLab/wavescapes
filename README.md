@@ -3,7 +3,7 @@
 ![Image showing all six wavescapes produced from Chopin's Prelude in A Minor](img/chopin_prelude_all_coeffs.png?raw=true "Chopin's Prelude in A Minor, visualized by wavescapes")
 
 
-Wavescapes are plots that can visually represent measurements of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner allowing all possible subsections of a musical piece to have their measurement being displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). Interpretation of the different components outputed by the DFT with respect to the soure musical piece allow high-level analysis of the tonality in the hierarchy of the piece. A publication describing the methodology and many use cases of this visual tool will be published in the future.
+Wavescapes are plots that can visually represent measurements of regularity in music. Those measurements are represented by colors, which are ordered in a hierarchical manner allowing all possible subsections of a musical piece to have their measurement being displayed on the plot. The regularity is measured through the Discrete Fourier Tansform (DFT). Interpretation of the different components outputed by the DFT with respect to the soure musical piece allow high-level analysis of the tonality in the hierarchy of the piece. [Here is the paper published by Musicae Scientiae describing the methodology and some case studies of this novel method of visualisation](https://www.doi.org/10.1177/10298649211034906).
 
 
 ### Installation
@@ -28,11 +28,11 @@ Below is the list of packages required in order for this library to work. Link t
 
 ### Documentation & How to use
 
-The library is small and lightweight as there are only three functions useful for plotting and understanding wavescapes. However, we do provide a lot of customizations through the means of optional parameters for each functions. This is why we have designed a thorough tutorial on how to use the library and manipulate all the options available. The tutorial consists of three jupyter notebooks located in the `tutorials` folder. You can read the tutorials on your browser by following the links below, but we strongly recommand you to clone this repository and to run the tutorials notebook on your own. You can then try to change the parameters and experiment with the different customizations options proposed, or use the notebooks as a base for generating your own wavescapes.
+The library is small and lightweight as there are only three functions useful for plotting and understanding wavescapes. However, we do provide a lot of customizations through the means of optional parameters for each functions. This is why we have designed a thorough tutorial on how to use the library and manipulate all the options available. The tutorial consists of a single jupyter notebook located in the `notebook` folder. You can read the tutorial on your browser by following the link below, but we strongly recommand you to clone this repository and to run the tutorials notebook on your own. You can then try to change the parameters and experiment with the different customizations options proposed, or use the notebooks as a base for generating your own wavescapes.
 
-1. [Single Wavescape](https://nbviewer.jupyter.org/github/DCMLab/wavescapes/blob/production/tutorials/1.Single%20Wavescape.ipynb)
-2. [Wavescapes on audio](https://nbviewer.jupyter.org/github/DCMLab/wavescapes/blob/production/tutorials/2.%20Wavescapes%20on%20audio.ipynb)
-3. [Many Wavescapes & Legend](https://nbviewer.jupyter.org/github/DCMLab/wavescapes/blob/production/tutorials/3.%20Many%20Wavescapes%20%26%20Legend.ipynb)
+[Link to a notebook viewer of the tutorial](https://nbviewer.jupyter.org/github/DCMLab/wavescapes/blob/production/notebooks/Tutorial.ipynb)
+
+No official documentation is provided, however most of the functions from this package have been described by python docstring you may find in the source code (`wavescapes` folder).
 
 ### Quickstart
 If all functions and classes from this package are correctly imported, the short function call below is an example on how to generate a wavescape plot from a MIDI file and then save it as a PNG file.
