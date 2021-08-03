@@ -221,6 +221,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
         msg = 'Max magnitude of %lf observed for coeff. number %d, post normalizing all magnitudes by %.2lf%% of their ' \
               'original values'%(max_magn, coeff,100*boosting_factor)
         print(msg)
+        
         for y in range(shape_y):
             for x in range(shape_x):
                 angle, magn = angle_magn_mat[y][x]
