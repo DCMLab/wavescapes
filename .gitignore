@@ -1,9 +1,14 @@
 build/
-notebooks/
 __pycache__/
 .ipynb_checkpoints/
 notebooks/__pycache__/
 notebooks/.ipynb_checkpoints/
+notebooks/wavescapes
+Notebooks/.DS_Store
+tutorials/.DS_Store
+Tutorials/inputs/.DS_Store
+tutorials/wavescapes
 *.egg-info/
 dist/
 build/
+midifFiles/*.png

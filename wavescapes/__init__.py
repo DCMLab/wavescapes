@@ -1,1 +1,5 @@
-from wavescapes.wavescapes import Wavescape, produce_pitch_class_matrix_from_filename, apply_dft_to_pitch_class_matrix, complex_utm_to_ws_utm, legend_decomposition, generate_all_wavescapes
+from .pcv import produce_pitch_class_matrix_from_filename
+from .dft import apply_dft_to_pitch_class_matrix
+from .color import complex_utm_to_ws_utm
+from .draw import Wavescape
+from .general import single_wavescape, all_wavescapes, legend_decomposition
