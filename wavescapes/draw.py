@@ -255,11 +255,11 @@ class Wavescape(object):
         primitive_width = self.width/float(self.mat_dim)
         primitive_height = get_primitive_height(self.primitive, primitive_width)
         
-        for y in range(self.mat_dim):
-            for x in range(y, self.mat_dim):
-                curr_color = rgb_to_hex(self.utm[y][x])
+        for grouped_segments in range(self.mat_dim):
+            for last_segment in range(grouped_segments, self.mat_dim):
+                curr_color = rgb_to_hex(self.utm[grouped_segments][last_segment])
                 if curr_color:
-                    self.matrix_primitive[y][x] = new_primitive_with_coords(curr_color, x, y, half_width_shift,
+                    self.matrix_primitive[grouped_segments][last_segment] = new_primitive_with_coords(curr_color, last_segment, grouped_segments, half_width_shift,
                                                                             half_height_shift, self.primitive,
                                                                             primitive_width, primitive_height) 
 
@@ -357,8 +357,8 @@ class Wavescape(object):
         '''
         
         start_primitive_idx = 0
-        utm_w = self.matrix_primitive.shape[0]
-        utm_h = self.matrix_primitive.shape[1]
+        utm_h = self.matrix_primitive.shape[0]
+        utm_w = self.matrix_primitive.shape[1]
         
         if self.matrix_primitive is None or utm_w < 1 or utm_h < 1:
             raise Exception("Cannot draw when there is nothing to draw.")
@@ -438,9 +438,9 @@ class Wavescape(object):
             ax = fig.add_subplot(111, aspect='equal')
         
 
-        for y in range(utm_h):
-            for x in range(start_primitive_idx+y, utm_w):
-                element = self.matrix_primitive[y][x]
+        for grouped_segments in range(utm_h):
+            for last_segment in range(start_primitive_idx+grouped_segments, utm_w):
+                element = self.matrix_primitive[grouped_segments][last_segment]
                 #array of primitive is by default filled with None value, this avoid that.
                 if element:
                     ax.add_patch(element.draw(stroke=add_line))

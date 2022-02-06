@@ -198,71 +198,71 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
     res = np.full((shape_x, shape_y, channel_nbr), default_value, default_type)
     
     if magn_stra == '0c':
-        for y in range(shape_y):
-            for x in range(shape_x):
-                curr_value = utm[y][x]
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
                 if np.any(curr_value):
                     angle, magn = zeroth_coeff_cm(curr_value, coeff)
-                    res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
+                    res[grouped_segments][last_segment] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
                                              ignore_magnitude=ignore_magnitude,
                                              ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
     
     elif magn_stra == 'post_norm':
         angle_magn_mat = np.full((shape_x, shape_y, 2), 0., np.float64)
-        for y in range(shape_y):
-            for x in range(shape_x):
-                curr_value = utm[y][x]
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
                 if np.any(curr_value):
                     angle, magn = zeroth_coeff_cm(curr_value, coeff)
-                    angle_magn_mat[y][x][0] = angle
-                    angle_magn_mat[y][x][1] = magn
+                    angle_magn_mat[grouped_segments][last_segment][0] = angle
+                    angle_magn_mat[grouped_segments][last_segment][1] = magn
         max_magn = np.max(angle_magn_mat[:,:,1])
         boosting_factor = 1./float(max_magn)
         msg = 'Max magnitude of %lf observed for coeff. number %d, post normalizing all magnitudes by %.2lf%% of their ' \
               'original values'%(max_magn, coeff,100*boosting_factor)
         print(msg)
         
-        for y in range(shape_y):
-            for x in range(shape_x):
-                angle, magn = angle_magn_mat[y][x]
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                angle, magn = angle_magn_mat[grouped_segments][last_segment]
                 if np.any([angle, magn]):
-                    res[y][x] = circular_hue(angle, magnitude=magn*boosting_factor, output_rgba=output_rgba,
+                    res[grouped_segments][last_segment] = circular_hue(angle, magnitude=magn*boosting_factor, output_rgba=output_rgba,
                                              ignore_magnitude=ignore_magnitude,
                                              ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
                 
     elif magn_stra == 'max':
         #arr[:,:,coeff] is a way to select only one coefficient from the tensor of all 6 coefficients 
         max_magn = np.max(np.abs(utm[:,:,coeff]))
-        for y in range(shape_y):
-            for x in range(shape_x):
-                curr_value = utm[y][x]
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
                 if np.any(curr_value):
                     angle, magn = max_cm(curr_value, coeff, max_magn)
-                    res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
+                    res[grouped_segments][last_segment] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
                                              ignore_magnitude=ignore_magnitude,
                                              ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
                 
     elif magn_stra == 'max_weighted':
-        for y in range(shape_y):
-            line = utm[y]
+        for grouped_segments in range(shape_x):
+            line = utm[grouped_segments]
             max_magn = np.max([np.abs(el[coeff]) for el in line])
-            for x in range(shape_x):
-                curr_value = utm[y][x]
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
                 if np.any(curr_value):
                     angle, magn = max_cm(curr_value, coeff, max_magn)
-                    res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
+                    res[grouped_segments][last_segment] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
                                              ignore_magnitude=ignore_magnitude,
                                              ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
     
     elif magn_stra == 'raw':
-        for y in range(shape_y):
-            for x in range(shape_x):
-                curr_value = utm[y][x]
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
                 if np.any(curr_value):
                     value = curr_value[coeff]
                     angle = np.angle(value)
                     magn = np.abs(value)
-                    res[y][x] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
+                    res[grouped_segments][last_segment] = circular_hue(angle, magnitude=magn, output_rgba=output_rgba,
                                              ignore_magnitude=ignore_magnitude,
                                              ignore_phase=ignore_phase) if not output_raw_values else (angle, magn)
     else:
