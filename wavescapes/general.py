@@ -82,6 +82,12 @@ def single_wavescape(filepath, width, coefficient, aw_size=1, save_label=None,
     tick_factor: float, optional
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is 1.0
+
+    ignore_magnitude: bool, optional
+        Set to True to plot without magnitude.
+
+    ignore_phase: bool, optional
+        Set to True to plot without phase.
     
     indicator_size: float, optional 
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
@@ -112,12 +118,111 @@ def single_wavescape(filepath, width, coefficient, aw_size=1, save_label=None,
     pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size, deep_chroma=deep_chroma,
                                                       trim_extremities=trim_extremities,
                                                       remove_unpitched_tracks=remove_unpitched_tracks)
+    single_wavescape_from_pcvs(pc_mat, width, coefficient, save_label, magn_stra, output_rgba,
+                               primitive, aw_per_tick, tick_offset, tick_start, tick_factor,
+                               ignore_magnitude, ignore_phase, indicator_size, add_line,
+                               subparts_highlighted, label, label_size, ax)
+
+
+def single_wavescape_from_pcvs(pc_mat, width, coefficient, save_label, magn_stra, output_rgba,
+                               primitive, aw_per_tick, tick_offset, tick_start, tick_factor,
+                               ignore_magnitude, ignore_phase, indicator_size, add_line,
+                               subparts_highlighted, label, label_size, ax):
+    """
+
+    Parameters
+    ----------
+
+    pc_mat : numpy.array
+        A (n, m) array with n pitch class vectors of size m (number of pitch classes, generally 12).
+        Each vector corresponds to the pitch classes' summed durations for a segment of the piece.
+        They will be summed to form the higher levels in a (n, n, m)-dimensional triangular matrix.
+
+    width: int
+        the width in pixel of the wavescape. The height is dependant on both the width and
+        the drawing primitive used, and as such, cannot be decided by the user of this function
+
+    coefficient: int, between 1 and 6 (included)
+        Index of the Fourier coefficient that is visualised in the wavescape plot. For more details,
+        see the doc of ''
+
+    save_label: str, optional
+        if provided, save the resulting plot in the label indicated. Internally will call matplotlib.pyplot.savefig
+        with this parameter, so the file format can (and must) be specified as an extension in this parameter
+        Default value is None
+
+    magn_stra: str, optional
+        see the doc 'complex_utm_to_ws_utm' for information on this parameter
+        Default value is '0c'
+
+    output_rgba:
+        see the doc 'complex_utm_to_ws_utm' for information on this parameter
+        Default value is '0c'
+
+    primitive: str, optional
+        see the doc of the constructor of the class 'Wavescape' for information on this parameter.
+        Default value is Wavescape.RHOMBUS_STR (i.e. 'rhombus')
+
+    aw_per_tick: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None (meaning no ticks are drawn)
+
+    tick_offset: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 0
+
+    tick_start: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 0
+
+    tick_factor: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 1.0
+
+    ignore_magnitude: bool, optional
+        Set to True to plot without magnitude.
+
+    ignore_phase: bool, optional
+        Set to True to plot without phase.
+
+    indicator_size: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None
+
+    add_line: numeric value, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is False
+
+    subparts_highlighted: array of tuples, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None
+
+    label: str, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None
+
+    label_size: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None (in which case the default
+        size of the labels is the width of the plot divided by 30)
+
+    ax: matplotlib figure, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None.
+
+    Returns
+    -------
+
+    """
     fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat, build_utm=True)
-    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba,
+    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra,
+                                      output_rgba=output_rgba,
                                       ignore_magnitude=ignore_magnitude, ignore_phase=ignore_phase)
     ws = Wavescape(color_mat, width=width, primitive=primitive)
-    ws.draw(indicator_size=indicator_size, aw_per_tick=aw_per_tick, tick_start=tick_start, tick_offset=tick_offset, tick_factor=tick_factor,
-            add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
+    ws.draw(indicator_size=indicator_size, aw_per_tick=aw_per_tick, tick_start=tick_start,
+            tick_offset=tick_offset, tick_factor=tick_factor,
+            add_line=add_line, subparts_highlighted=subparts_highlighted, label=label,
+            label_size=label_size, ax=ax)
     if save_label:
         plt.savefig(save_label, transparent=output_rgba)
 
