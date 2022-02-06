@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import accumulate
 
 def reset_tril(arr):
     """This is the equivalent to np.triu(arr), but only for the first two dimensions and inplace.
@@ -74,8 +75,6 @@ def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
     res = np.fft.fft(pc_mat)[:, :coeff_nmb] #coeff 7 to 11 are uninteresting (conjugates of coeff 6 to 1).
     
     if build_utm:
-        new_res = np.full((pcv_nmb, pcv_nmb, coeff_nmb), (0. + 0.j), np.complex128)
-        new_res[0] = res 
-        res = build_utm_from_one_row(new_res)
+        res = build_utm_from_one_row(res)
         
     return res
