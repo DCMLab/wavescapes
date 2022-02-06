@@ -1,19 +1,45 @@
 import numpy as np
 
-def build_utm_from_one_row(res):
+def reset_tril(arr):
+    """This is the equivalent to np.triu(arr), but only for the first two dimensions and inplace.
+    This function mutates arr by overwriting the triangle beneath the diagonal (tril, k=-1)
+    with zeros."""
+    n = arr.shape[0]
+    arr[np.tril_indices(n, k=-1)] = 0
+
+def build_utm_from_one_row(first_row, reset_ltm=True):
     """
-    given a NxN matrix whose first row is the only
-    one that's filled with values, this function fills
-    all the above row by summing for each row's element
-    the two closest element from the row below. This
-    method of summing builds an upper-triangle-matrix
-    whose structure represent all hierarchical level.
+    given a NxM matrix representing N adjacent segments
+    of a piece by M numbers each, this function creates a
+    NxNxM upper triangular matrix ("triu") starting with
+    the given matrix as the first. All rows below (i >= 1)
+    are created by summing for each row's element
+    (i, j) the upper left neighbour (i-1, j-i) with (0, j).
+    This method of summing builds an upper-triangle-matrix
+    whose structure represent all hierarchical levels.
+
+    Parameters
+    ----------
+    first_row: np.array
+        Expects a 2D array where rows represent adjacent segments of a piece. They could be,
+        for instance, beat-wise DFT coefficients or slice-wise pitch class profiles.
+    reset_ltm: bool, optional
+        The ltm (lower triangular matrix, "tril") contains irrelevant non-zero values. By default,
+        these are overwritten with 0 to avoid confusion. Pass False skip this step.
+
+    Returns
+    -------
+    np.array
+
     """
-    pcv_nmb = np.shape(res)[0]
-    for i in range(1, pcv_nmb):
-        for j in range(0, pcv_nmb-i):
-            res[i][i+j] = res[0][i+j] + res[i-1][i+j-1]
-    return res
+    def pad_previous(a, b):
+        """Shift the previous row to the right by prepending a zero and add. ``b`` is ignored."""
+        return first_row + np.pad(a, ((1, 0), (0, 0)))[:-1]
+    pcv_nmb = np.shape(first_row)[0]
+    result = np.array(list(accumulate(range(pcv_nmb - 1), pad_previous, initial=first_row)))
+    if reset_ltm:
+        reset_tril(result)
+    return result
 
 
 def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
