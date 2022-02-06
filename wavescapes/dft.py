@@ -46,10 +46,7 @@ def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
     #+1 to hold room for the 0th coefficient
     coeff_nmb = int(pc_nmb/2)+1
     res_dimensions = (pcv_nmb, coeff_nmb)
-    res = np.full(res_dimensions, (0. + 0.j), np.complex128)
-
-    for i in range(pcv_nmb):
-        res[i] = np.fft.fft(pc_mat[i])[:coeff_nmb] #coeff 7 to 11 are uninteresting (conjugates of coeff 6 to 1).
+    res = np.fft.fft(pc_mat)[:, :coeff_nmb] #coeff 7 to 11 are uninteresting (conjugates of coeff 6 to 1).
     
     if build_utm:
         new_res = np.full((pcv_nmb, pcv_nmb, coeff_nmb), (0. + 0.j), np.complex128)
