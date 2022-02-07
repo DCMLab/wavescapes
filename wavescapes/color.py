@@ -4,7 +4,12 @@ import math
 from warnings import warn
 
 
-def rgba_to_rgb(to_convert, background):
+def rgba_to_rgb(to_convert, background=None):
+    """Takes an RGBA tuple of 4 floats between [0,1] and eliminates the alpha channel by mixing
+    R, G, and B with the background colour (which defaults to white).
+    """
+    if background is None:
+        background = (1., 1., 1.,)
     if len(to_convert) == 3:
         return to_convert #no point converting something that is already in RGB
     if len(to_convert) != 4:
@@ -12,8 +17,8 @@ def rgba_to_rgb(to_convert, background):
     if len(background) != 3:
         raise Exception('Incorrect format for the value background, should have length of 3 '
                         '(no alpha channel for this one)')
-    alpha = float(to_convert[3])/255.0
-    return [int((1 - alpha) * background[i] + alpha * to_convert[i]) for i in range(len(background))]
+    alpha = to_convert[3]
+    return tuple([alpha * convert_c + (1 - alpha) * background_c for convert_c, background_c in zip(to_convert, background)])
 
 
 def stand(v):
