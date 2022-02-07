@@ -17,6 +17,10 @@ def rgba_to_rgb(to_convert, background):
 
 
 def stand(v):
+    if v > 1:
+        if np.isclose(v, 1):
+            return 255
+        assert v <= 1, f"Expected RGBA channel to be <= 1 but got {v}"
     return int(v*0xff)
 
 
@@ -34,7 +38,7 @@ def rgb_to_saturated_rbg(rgb_value, saturation_val):
     return (apply_sat(r), apply_sat(g), apply_sat(b))
 
 
-def circular_hue(angle, magnitude=1., output_rgba=True, ignore_magnitude=False, ignore_phase=False):
+def circular_hue(angle, magnitude=1., output_rgba=True, ignore_magnitude=False, ignore_phase=False, decimal=False):
     # np.angle returns value in the range of [-pi : pi], where the circular hue is defined for
     # values in range [0 : 2pi]. Rather than shifting by a pi, the solution is for the negative
     # part to be mapped to the [pi: 2pi] range which can be achieved by a modulo operation.
@@ -61,26 +65,23 @@ def circular_hue(angle, magnitude=1., output_rgba=True, ignore_magnitude=False, 
     green = lambda a: step_function_quarter_pi_activation(0, math.pi, a)
     blue = lambda a: step_function_quarter_pi_activation(math.pi*2/3, math.pi*5/3, a)
     red = lambda a: step_function_quarter_pi_activation(math.pi*4/3, math.pi/3, a)
-    gray = lambda v: int(0xff * (1-v))
-    value = None
+    gray = lambda v: 1-v
     if ignore_magnitude and not ignore_phase:
-        value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)))
+        value = (red(angle), green(angle), blue(angle))
         if output_rgba:
-            value = (value[0], value[1], value[2], stand(1))
+            value = value + (1., )
     elif ignore_phase and not ignore_magnitude:
         g = gray(magnitude)
-        value = (g, g, g)
-        if output_rgba:
-            value = (value[0], value[1], value[2], g)
+        value = (g, g, g, g) if output_rgba else (g, g, g)
     elif ignore_phase and ignore_magnitude:
-        value = (0xff, 0xff, 0xff)
-        if output_rgba:
-            value = (0xff, 0xff, 0xff, 0xff)
+        value = (0., 0., 0., 0.,) if output_rgba else (0., 0., 0.)
     else:
-        value = (stand(red(angle)), stand(green(angle)), stand(blue(angle)), stand(magnitude))
+        value = (red(angle), green(angle), blue(angle), magnitude)
         if not output_rgba:
-            #default background for the opacity is white.
-            value = rgba_to_rgb(value, background=(0xff,0xff,0xff))
+            #gets rid of alpha by mixing the background color into the RGB channels
+            value = rgba_to_rgb(value, background=None)
+    if not decimal:
+        return tuple([stand(ch) for ch in value])
     return value
 
 
