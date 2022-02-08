@@ -1,13 +1,42 @@
 import os, math
 import numpy as np
-from matplotlib.colors import hsv_to_rgb, to_hex
+
 from pcv import produce_pitch_class_matrix_from_filename
-from dft import apply_dft_to_pitch_class_matrix, reset_tril
-from color import complex_utm_to_ws_utm
+from dft import apply_dft_to_pitch_class_matrix
+from color import complex_utm_to_ws_utm, normalize_dft
 
 
-def complex2color(utm, coeff, magn_stra='0c', output_rgba=False, output_raw_values=False,
-                  ignore_magnitude=False, ignore_phase=False):
+from warnings import warn
+
+
+def rgba_to_rgb(to_convert, background=None):
+    """Takes an RGBA tuple of 4 floats between [0,1] and eliminates the alpha channel by mixing
+    R, G, and B with the background colour (which defaults to white).
+    """
+    if background is None:
+        background = (1., 1., 1.,)
+    if len(to_convert) == 3:
+        return to_convert  # no point converting something that is already in RGB
+    if len(to_convert) != 4:
+        raise Exception('Incorrect format for the value to be converted, should have length of 4')
+    if len(background) != 3:
+        raise Exception('Incorrect format for the value background, should have length of 3 '
+                        '(no alpha channel for this one)')
+    alpha = to_convert[3]
+    return tuple([alpha * convert_c + (1 - alpha) * background_c for convert_c, background_c in
+                  zip(to_convert, background)])
+
+
+def stand(v):
+    if v > 1:
+        if np.isclose(v, 1):
+            return 255
+        assert v <= 1, f"Expected RGBA channel to be <= 1 but got {v}"
+    return int(v * 0xff)
+
+
+def previous_complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_raw_values=False,
+                  ignore_magnitude=False, ignore_phase=False, decimal=False):
     """
     Converts an upper triangle matrix filled with Fourier coefficients into
     an upper triangle matrix filled with color values that serves as the mathematical model
@@ -85,111 +114,182 @@ def complex2color(utm, coeff, magn_stra='0c', output_rgba=False, output_raw_valu
         values corresponding to the color mapping of a single Fourier coefficient from the input, or
         the angle and magnitudes of a certain coefficient.
     """
-    mag_phase_mx = normalize_dft(utm, how=magn_stra, coeff=coeff)
-    if output_raw_values:
-        return mag_phase_mx
+
+    def zeroth_coeff_cm(value, coeff):
+        zero_c = value[0].real
+        if zero_c == 0.:
+            # empty pitch class vector, thus returns white color value.
+            # this avoid a nasty divide by 0 error two lines later.
+            return (0., 0.)  # ([0xff]*3
+        nth_c = value[coeff]
+        magn = np.abs(nth_c) / zero_c
+        angle = np.angle(nth_c)
+        return (magn, angle)
+
+    def max_cm(value, coeff, max_magn):
+        if max_magn == 0.:
+            return (0., 0.)
+        nth_c = value[coeff]
+        magn = np.abs(nth_c)
+        angle = np.angle(nth_c)
+        return (magn / max_magn, angle)
+
+    if output_rgba and output_raw_values:
+        output_rgba = False  # Only one shall prevail
+        msg = "parameters 'output_rgba' and 'output_raw_values' cannot be set to True at the same time. " \
+              "'output_raw_values' takes precedence in that case, and no color values are produced."
+        warn(msg)
+
+    shape_x, shape_y = np.shape(utm)[:2]
+    # RGB => 3 values, RGBA => RGB + 1 value, raw values => angle & magnitude => 2 values
+    channel_nbr = 4 if output_rgba else 2 if output_raw_values else 3
+    default_value = 0.0 if output_raw_values or decimal else (0xff + 1)
+    default_type = np.float64 if output_raw_values or decimal else np.uint64
+    # +1 to differentiate empty elements from white elements later down the line.
+    res = np.full((shape_x, shape_y, channel_nbr), default_value, default_type)
+
+    if magn_stra == '0c':
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
+                if np.any(curr_value):
+                    magn, angle = zeroth_coeff_cm(curr_value, coeff)
+                    res[grouped_segments][last_segment] = previous_circular_hue(angle, magnitude=magn,
+                                                                       output_rgba=output_rgba,
+                                                                       ignore_magnitude=ignore_magnitude,
+                                                                       ignore_phase=ignore_phase,
+                                                                       decimal=decimal) if not output_raw_values else (
+                    magn, angle)
+
+    elif magn_stra == 'post_norm':
+        magn_angle_mat = np.full((shape_x, shape_y, 2), 0., np.float64)
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
+                if np.any(curr_value):
+                    magn, angle = zeroth_coeff_cm(curr_value, coeff)
+                    magn_angle_mat[grouped_segments][last_segment][0] = magn
+                    magn_angle_mat[grouped_segments][last_segment][1] = angle
+        max_magn = np.max(magn_angle_mat[:, :, 0])
+        boosting_factor = 1. / float(max_magn)
+        msg = 'Max magnitude of %lf observed for coeff. number %d, post normalizing all magnitudes by %.2lf%% of their ' \
+              'original values' % (max_magn, coeff, 100 * boosting_factor)
+        print(msg)
+
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                magn, angle = magn_angle_mat[grouped_segments][last_segment]
+                if np.any([magn, angle]):
+                    res[grouped_segments][last_segment] = previous_circular_hue(angle,
+                                                                       magnitude=magn * boosting_factor,
+                                                                       output_rgba=output_rgba,
+                                                                       ignore_magnitude=ignore_magnitude,
+                                                                       ignore_phase=ignore_phase,
+                                                                       decimal=decimal) if not output_raw_values else (
+                    magn * boosting_factor, angle)
+
+    elif magn_stra == 'max':
+        # arr[:,:,coeff] is a way to select only one coefficient from the tensor of all 6 coefficients
+        max_magn = np.max(np.abs(utm[:, :, coeff]))
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
+                if np.any(curr_value):
+                    magn, angle = max_cm(curr_value, coeff, max_magn)
+                    res[grouped_segments][last_segment] = previous_circular_hue(angle, magnitude=magn,
+                                                                       output_rgba=output_rgba,
+                                                                       ignore_magnitude=ignore_magnitude,
+                                                                       ignore_phase=ignore_phase,
+                                                                       decimal=decimal) if not output_raw_values else (
+                    magn, angle)
+
+    elif magn_stra == 'max_weighted':
+        for grouped_segments in range(shape_x):
+            line = utm[grouped_segments]
+            max_magn = np.max([np.abs(el[coeff]) for el in line])
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
+                if np.any(curr_value):
+                    magn, angle = max_cm(curr_value, coeff, max_magn)
+                    res[grouped_segments][last_segment] = previous_circular_hue(angle, magnitude=magn,
+                                                                       output_rgba=output_rgba,
+                                                                       ignore_magnitude=ignore_magnitude,
+                                                                       ignore_phase=ignore_phase,
+                                                                       decimal=decimal) if not output_raw_values else (
+                    magn, angle)
+
     elif magn_stra == 'raw':
-        print("Raw (absolute) magnitudes cannot be converted to colors. Returning the raw "
-              "magnitude-phase matrix instead.")
-        return mag_phase_mx
-    return phases2color(mag_phase_mx, output_rgba, ignore_magnitude, ignore_phase)
+        for grouped_segments in range(shape_x):
+            for last_segment in range(shape_y):
+                curr_value = utm[grouped_segments][last_segment]
+                if np.any(curr_value):
+                    value = curr_value[coeff]
+                    angle = np.angle(value)
+                    magn = np.abs(value)
+                    res[grouped_segments][last_segment] = previous_circular_hue(angle, magnitude=magn,
+                                                                       output_rgba=output_rgba,
+                                                                       ignore_magnitude=ignore_magnitude,
+                                                                       ignore_phase=ignore_phase,
+                                                                       decimal=decimal) if not output_raw_values else (
+                    magn, angle)
+    else:
+        raise Exception('Unknown option for magn_stra')
+
+    return res
 
 
 
 
 
-def phases2color(mag_phase_mx, output_rgba=False, ignore_magnitude=False, ignore_phase=False, deg=False, background=None,
-                 as_html=False):
+def previous_circular_hue(angle, magnitude=1., output_rgba=True, ignore_magnitude=False, ignore_phase=False,
+                 decimal=False):
     # np.angle returns value in the range of [-pi : pi], where the circular hue is defined for
     # values in range [0 : 2pi]. Rather than shifting by a pi, the solution is for the negative
     # part to be mapped to the [pi: 2pi] range which can be achieved by a modulo operation.
+    def two_pi_modulo(value):
+        return np.mod(value, 2 * math.pi)
 
-    n = mag_phase_mx.shape[0]
-    if not (ignore_magnitude and ignore_magnitude):
-        mags = mag_phase_mx[..., 0]
-        assert mags.max() <= 1, "Magnitudes are expected to be <= 1"
-    if not ignore_phase:
-        angles = mag_phase_mx[..., 1] % math.tau
-        if deg:
-            angles = angles / 360.
+    def step_function_quarter_pi_activation(lo_bound, hi_bound, value):
+        # in the increasing path branch
+        if value >= lo_bound and value <= lo_bound + math.pi / 3:
+            return ((value - lo_bound) / (math.pi / 3))
+        # in the decreasing path branch
+        elif value >= hi_bound and value <= hi_bound + math.pi / 3:
+            return 1 - ((value - hi_bound) / (math.pi / 3))
         else:
-            angles = angles / (2 * np.pi)
-    if ignore_phase:
-        dim = 4 if output_rgba else 3
-        if ignore_magnitude:
-            if as_html:
-                nothing = "#00000000" if output_rgba else "#000000"
-                return np.full((n, n), nothing)
+            # the case of red
+            if lo_bound > hi_bound:
+                return 0 if value > hi_bound and value < lo_bound else 1
             else:
-                return np.zeros((n,n,dim))
-        rgb = np.dstack([1-mags] * dim)
-        reset_tril(rgb)
-        if not as_html:
-            return rgb
-        return np.apply_along_axis(to_hex, 2, rgb, output_rgba)
-    # interpret normalized phases as hue and convert to HSV colors by adding S=V=1
-    sv_dimensions = np.ones((n, n, 2))
-    hsv = np.dstack((angles, sv_dimensions))
-    reset_tril(hsv)
-    rgb = hsv_to_rgb(hsv)
-    if output_rgba:
-        if ignore_magnitude:
-            rgb = np.dstack((rgb, np.ones((n,n,1))))
-        else:
-            rgb = np.dstack((rgb, mags))
-    elif not ignore_magnitude:
-        if background is None:
-            bckg = (1 - mags)[...,None]
-        else:
-            bckg = (1 - mags)[..., None] * np.broadcast_to(background, (n,n,3))
-        rgb = mags[...,None] * rgb + bckg
-    reset_tril(rgb)
-    if not as_html:
-        return rgb
-    return np.apply_along_axis(to_hex, 2, rgb, output_rgba)
+                return 1 if value > lo_bound and value < hi_bound else 0
 
-
-def normalize_dft(dft=None, how='0c', coeff=None):
-    if coeff is None:
-        mags, phases = np.abs(dft[..., 1:]), np.angle(dft[..., 1:])
+    # Need to shift the value with one pi as the range of the angle given is between pi and minus pi
+    # and the formulat I use goes from 0 to 2pi.
+    angle = two_pi_modulo(angle)
+    green = lambda a: step_function_quarter_pi_activation(0, math.pi, a)
+    blue = lambda a: step_function_quarter_pi_activation(math.pi * 2 / 3, math.pi * 5 / 3, a)
+    red = lambda a: step_function_quarter_pi_activation(math.pi * 4 / 3, math.pi / 3, a)
+    gray = lambda v: 1 - v
+    if ignore_magnitude and not ignore_phase:
+        value = (red(angle), green(angle), blue(angle))
+        if output_rgba:
+            value = value + (1.,)
+    elif ignore_phase and not ignore_magnitude:
+        g = gray(magnitude)
+        value = (g, g, g, g) if output_rgba else (g, g, g)
+    elif ignore_phase and ignore_magnitude:
+        value = (0., 0., 0., 0.,) if output_rgba else (0., 0., 0.)
     else:
-        mags, phases = np.abs(dft[..., coeff]), np.angle(dft[..., coeff])
+        value = (red(angle), green(angle), blue(angle), magnitude)
+        if not output_rgba:
+            # gets rid of alpha by mixing the background color into the RGB channels
+            value = rgba_to_rgb(value, background=None)
+    if not decimal:
+        return tuple([stand(ch) for ch in value])
+    return value
 
-    def concat_mags_phases():
-        """Produce the function result by concatenating magnitudes and phases."""
-        if coeff is None:
-            return np.stack((mags, phases), axis=-1)
-        return np.dstack((mags, phases))
 
-    if how == 'raw':
-        return concat_mags_phases()
 
-    if how in ('0c', 'post_norm'):
-        if coeff is None:
-            norm_by = np.real(dft[..., [0]])
-        else:
-            norm_by = np.real(dft[..., 0])
-    elif how == 'max':
-        if coeff is None:
-            norm_by = mags.max(axis=1, keepdims=True).max(axis=0, keepdims=True)
-        else:
-            norm_by = mags.max()
-    elif how == 'max_weighted':
-        if coeff is None:
-            norm_by = mags.max(axis=-2, keepdims=True)
-        else:
-            norm_by = mags.max(axis=-1, keepdims=True)
-    mags = np.divide(mags, norm_by, out=np.empty_like(mags), where=norm_by > 0)
-    reset_tril(mags)
-    if (mags > 1).any():
-        print("After normalizing by coefficient 0, there are still values > 1. This can happen "
-              "only where c0 is 0 or if a coefficient's magnitude is bigger than c0's.")
-    if how == 'post_norm':
-        if coeff is None:
-            mags = mags / mags.max(axis=1, keepdims=True).max(axis=0, keepdims=True)
-        else:
-            mags = mags / mags.max()
-    return concat_mags_phases()
 
 
 NORM_METHODS = ('raw', 'max_weighted', 'max', '0c', 'post_norm')
@@ -198,7 +298,7 @@ NORM_METHODS = ('raw', 'max_weighted', 'max', '0c', 'post_norm')
 def test_normalization(dft):
     for how in NORM_METHODS:
         for i in range(1,7):
-            aa = complex_utm_to_ws_utm(dft, i, magn_stra=how, output_raw_values=True)
+            aa = previous_complex_utm_to_ws_utm(dft, i, magn_stra=how, output_raw_values=True)
             bb = normalize_dft(dft, how=how, coeff=i)
             assert np.allclose(aa, bb), f"{how} normalization, coeff={i}"
             print(f"{how} normalization, coeff={i}: OK")
@@ -220,16 +320,20 @@ def test_decimal_rgb(dft):
             for im in (False, True):
                 for ip in (False, True):
                     for i in range(1,7):
-                        a = complex_utm_to_ws_utm(dft, i, magn_stra=how, output_rgba=rgba, ignore_magnitude=im, ignore_phase=ip, decimal=True)
-                        b = complex2color(dft, i, magn_stra=how, output_rgba=rgba, ignore_magnitude=im, ignore_phase=ip)
+                        a = previous_complex_utm_to_ws_utm(dft, i, magn_stra=how, output_rgba=rgba, ignore_magnitude=im, ignore_phase=ip, decimal=True)
+                        b = complex_utm_to_ws_utm(dft, i, magn_stra=how, output_rgba=rgba, ignore_magnitude=im, ignore_phase=ip, as_html=False)
                         info_str = f"normalization: {how}, rgba={rgba}, coeff={i}, ignore_magnitude={im}, ignore_phase={ip}: "
                         assert np.allclose(a, b), info_str + 'FAIL'
                         print(info_str + 'OK')
 
 
-bach_prelude_midi = os.path.abspath("../midiFiles/210606-Prelude_No._1_BWV_846_in_C_Major.mid")
-pc_mat_bach = produce_pitch_class_matrix_from_filename(bach_prelude_midi, aw_size=4.)
-dft_mat_bach = apply_dft_to_pitch_class_matrix(pc_mat_bach)
-test_decimal_rgb(dft_mat_bach)
-test_batch_normalization(dft_mat_bach)
-test_normalization(dft_mat_bach)
+if __name__ == "__main__":
+    bach_prelude_midi = os.path.abspath("../midiFiles/210606-Prelude_No._1_BWV_846_in_C_Major.mid")
+    pc_mat_bach = produce_pitch_class_matrix_from_filename(bach_prelude_midi, aw_size=4.)
+    dft_mat_bach = apply_dft_to_pitch_class_matrix(pc_mat_bach)
+    test_decimal_rgb(dft_mat_bach)
+    test_batch_normalization(dft_mat_bach)
+    test_normalization(dft_mat_bach)
+
+
+
