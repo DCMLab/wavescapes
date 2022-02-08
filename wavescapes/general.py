@@ -510,26 +510,15 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, ignore_m
     mu_step = .025
     muvals = np.arange(0, 1. + mu_step, mu_step)
     
-    #powerset of all phis and mus.
-    cartesian_polar = np.array(np.meshgrid(phivals, muvals)).T.reshape(-1, 2)
+    #powerset of all mus and phis.
+    cartesian_polar = np.array(np.meshgrid(muvals, phivals)).reshape(2, -1).T
     
     #generating the color corresponding to each point.
-    color_arr = []
-    for phi, mu in cartesian_polar:
-        if ignore_phase:
-            if ignore_magnitude:
-                hexa = '#ffffff'
-            else:
-                stand = lambda v: int(0xff * (1-v))
-                g = stand(mu)
-                hexa = rgb_to_hex([g,g,g])
-        else:
-            hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, output_rgba=ignore_magnitude))
-            
-        color_arr.append(hexa)
+    color_arr = circular_hue(cartesian_polar, output_rgba=ignore_magnitude, ignore_magnitude=ignore_magnitude,
+                                        ignore_phase=ignore_phase)
         
-    xvals = cartesian_polar[:,0]
-    yvals = cartesian_polar[:,1]
+    xvals = cartesian_polar[:,1]
+    yvals = cartesian_polar[:,0]
 
     norm = mpl.colors.Normalize(0.0, 2*np.pi)
     fig = plt.figure(figsize= (width,width) if single_img_coeff else (width, 8*width/5) )

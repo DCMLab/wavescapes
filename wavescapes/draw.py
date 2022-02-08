@@ -194,13 +194,11 @@ class Wavescape(object):
         self.width = width
         self.primitive = primitive
         
-        mat_dim, mat_dim_other_axis, mat_depth = utm.shape
+        mat_dim, mat_dim_other_axis = utm.shape
         if mat_dim != mat_dim_other_axis:
             raise Exception("The upper triangle matrix is not a square matrix")
         if mat_dim > self.width/2:
             raise Exception("The number of elements to be drawn exceeds the wavescape's resolution.(%d elements out of %d allowed by the resolution) Increase the width of the plot to solve this issue" % (mat_dim, self.width/2))
-        if (mat_depth < 3 or mat_depth > 4):
-            raise Exception("The upper triangle matrix given as argument does not hold either RGB or RGBA values")
         self.mat_dim = mat_dim
         
         #building a matrix with None to hold the element object for drawing them later.
@@ -257,7 +255,7 @@ class Wavescape(object):
         
         for grouped_segments in range(self.mat_dim):
             for last_segment in range(grouped_segments, self.mat_dim):
-                curr_color = rgb_to_hex(self.utm[grouped_segments][last_segment])
+                curr_color = self.utm[grouped_segments][last_segment]
                 if curr_color:
                     self.matrix_primitive[grouped_segments][last_segment] = new_primitive_with_coords(curr_color, last_segment, grouped_segments, half_width_shift,
                                                                             half_height_shift, self.primitive,
