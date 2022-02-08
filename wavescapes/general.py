@@ -124,10 +124,12 @@ def single_wavescape(filepath, width, coefficient, aw_size=1, save_label=None,
                                subparts_highlighted, label, label_size, ax)
 
 
-def single_wavescape_from_pcvs(pc_mat, width, coefficient, save_label, magn_stra, output_rgba,
-                               primitive, aw_per_tick, tick_offset, tick_start, tick_factor,
-                               ignore_magnitude, ignore_phase, indicator_size, add_line,
-                               subparts_highlighted, label, label_size, ax):
+def single_wavescape_from_pcvs(pc_mat, width, coefficient, save_label=None, magn_stra='0c',
+                               output_rgba=False, primitive=Wavescape.RHOMBUS_STR,
+                               aw_per_tick=None, tick_offset=0, tick_start=0, tick_factor=1,
+                               ignore_magnitude=False, ignore_phase=False,
+                               indicator_size=None, add_line=False, subparts_highlighted=None,
+                               label=None, label_size=None, ax=None):
     """
 
     Parameters
@@ -338,15 +340,17 @@ def all_wavescapes(filepath,individual_width, save_label=None,
                                                       remove_unpitched_tracks=remove_unpitched_tracks,
                                                       trim_extremities=trim_extremities, deep_chroma=deep_chroma)
     all_wavescapes_from_pcvs(pc_mat, individual_width, save_label, magn_stra, output_rgba,
-                             primitive, aw_per_tick, tick_offset, indicator_size, tick_start,
-                             tick_factor, ignore_magnitude, ignore_phase, add_line,
+                             primitive, aw_per_tick, tick_offset, tick_start, tick_factor,
+                             ignore_magnitude, ignore_phase, indicator_size, add_line,
                              subparts_highlighted, label_size)
 
-
-def all_wavescapes_from_pcvs(pc_mat, individual_width, save_label, magn_stra, output_rgba,
-                             primitive, aw_per_tick, tick_offset, indicator_size, tick_start,
-                             tick_factor, ignore_magnitude, ignore_phase, add_line,
-                             subparts_highlighted, label_size):
+    
+def all_wavescapes_from_pcvs(pc_mat, individual_width, save_label=None, magn_stra='0c',
+                             output_rgba=False, primitive=Wavescape.RHOMBUS_STR,
+                             aw_per_tick=None, tick_offset=0, tick_start=0, tick_factor=1.,
+                             ignore_magnitude=False, ignore_phase=False,
+                             indicator_size=None, add_line=False, subparts_highlighted=None,
+                             label_size=None):
     """
 
     Parameters
