@@ -26,7 +26,7 @@ def build_utm_from_one_row(first_row, reset_ltm=True):
         for instance, beat-wise DFT coefficients or slice-wise pitch class profiles.
     reset_ltm: bool, optional
         The ltm (lower triangular matrix, "tril") contains irrelevant non-zero values. By default,
-        these are overwritten with 0 to avoid confusion. Pass False skip this step.
+        these are overwritten with 0 to avoid confusion. Pass False to skip this step.
 
     Returns
     -------
@@ -36,8 +36,9 @@ def build_utm_from_one_row(first_row, reset_ltm=True):
     def pad_previous(a, b):
         """Shift the previous row to the right by prepending a zero and add. ``b`` is ignored."""
         return first_row + np.pad(a, ((1, 0), (0, 0)))[:-1]
-    pcv_nmb = np.shape(first_row)[0]
-    result = np.array(list(accumulate(range(pcv_nmb - 1), pad_previous, initial=first_row)))
+    first_row = np.atleast_2d(first_row)
+    n_segments = first_row.shape[0]
+    result = np.array(list(accumulate(range(n_segments - 1), pad_previous, initial=first_row)))
     if reset_ltm:
         reset_tril(result)
     return result
