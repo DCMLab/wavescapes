@@ -1,9 +1,11 @@
+import pytest
 import os, math
+from itertools import product
 import numpy as np
 
-from pcv import produce_pitch_class_matrix_from_filename
-from dft import apply_dft_to_pitch_class_matrix
-from color import complex_utm_to_ws_utm, normalize_dft
+from wavescapes.pcv import produce_pitch_class_matrix_from_filename
+from wavescapes.dft import apply_dft_to_pitch_class_matrix
+from wavescapes.color import complex_utm_to_ws_utm, normalize_dft, clip_normalized_floats
 
 
 from warnings import warn
@@ -152,7 +154,7 @@ def previous_complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False
         for grouped_segments in range(shape_x):
             for last_segment in range(shape_y):
                 curr_value = utm[grouped_segments][last_segment]
-                if np.any(curr_value):
+                if np.any(curr_value):  # this filters out the lower triangle but also empty segments
                     magn, angle = zeroth_coeff_cm(curr_value, coeff)
                     res[grouped_segments][last_segment] = previous_circular_hue(angle, magnitude=magn,
                                                                        output_rgba=output_rgba,
@@ -166,7 +168,7 @@ def previous_complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False
         for grouped_segments in range(shape_x):
             for last_segment in range(shape_y):
                 curr_value = utm[grouped_segments][last_segment]
-                if np.any(curr_value):
+                if np.any(curr_value):  # this filters out the lower triangle but also empty segments
                     magn, angle = zeroth_coeff_cm(curr_value, coeff)
                     magn_angle_mat[grouped_segments][last_segment][0] = magn
                     magn_angle_mat[grouped_segments][last_segment][1] = angle
@@ -179,7 +181,7 @@ def previous_complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False
         for grouped_segments in range(shape_x):
             for last_segment in range(shape_y):
                 magn, angle = magn_angle_mat[grouped_segments][last_segment]
-                if np.any([magn, angle]):
+                if np.any([magn, angle]):  # this filters out the lower triangle but also empty segments
                     res[grouped_segments][last_segment] = previous_circular_hue(angle,
                                                                        magnitude=magn * boosting_factor,
                                                                        output_rgba=output_rgba,
@@ -194,7 +196,7 @@ def previous_complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False
         for grouped_segments in range(shape_x):
             for last_segment in range(shape_y):
                 curr_value = utm[grouped_segments][last_segment]
-                if np.any(curr_value):
+                if np.any(curr_value): # this filters out the lower triangle but also empty segments
                     magn, angle = max_cm(curr_value, coeff, max_magn)
                     res[grouped_segments][last_segment] = previous_circular_hue(angle, magnitude=magn,
                                                                        output_rgba=output_rgba,
@@ -209,7 +211,7 @@ def previous_complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False
             max_magn = np.max([np.abs(el[coeff]) for el in line])
             for last_segment in range(shape_y):
                 curr_value = utm[grouped_segments][last_segment]
-                if np.any(curr_value):
+                if np.any(curr_value):  # this filters out the lower triangle but also empty segments
                     magn, angle = max_cm(curr_value, coeff, max_magn)
                     res[grouped_segments][last_segment] = previous_circular_hue(angle, magnitude=magn,
                                                                        output_rgba=output_rgba,
@@ -222,7 +224,7 @@ def previous_complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False
         for grouped_segments in range(shape_x):
             for last_segment in range(shape_y):
                 curr_value = utm[grouped_segments][last_segment]
-                if np.any(curr_value):
+                if np.any(curr_value):  # this filters out the lower triangle but also empty segments
                     value = curr_value[coeff]
                     angle = np.angle(value)
                     magn = np.abs(value)
@@ -289,51 +291,85 @@ def previous_circular_hue(angle, magnitude=1., output_rgba=True, ignore_magnitud
     return value
 
 
+########################### TESTING PART
 
 
 
 NORM_METHODS = ('raw', 'max_weighted', 'max', '0c', 'post_norm')
 
+@pytest.fixture(
+    params=['NCandP.mid',
+            'trim_extremities_test.mid',
+            'emptyspace.mid',
+            #'AveMaria_desPrezmid.mid', music21 fails to parse this
+            'palestrina.mid',
+            'palestrina2.mid',
+            '210606-Prelude_No._1_BWV_846_in_C_Major.mid','chopin-prelude-op28-2.mid',
+            'Faust_Symphony_mov1.mid',
+            'Op74_No2_Pure.mid',
+            'giant_steps_first_chorus.mid',
+            '38088_Ligeti-Etude-No-2-Cordes-a-vide.mid'],
+    ids=['percussion',
+         'beginning_gap',
+         'middle_gap',
+         #'desprez',
+         'palestrina1',
+         'palestrina2',
+         'bach',
+         'chopin',
+         'liszt',
+         'scriabin',
+         'coltrane',
+         'ligeti'])
+def dft(request):
+    """Providing one DFT upper triangle matrix after another to the test methods below."""
+    rel_midi_path = os.path.join("../midiFiles", request.param)
+    abs_midi_path = os.path.abspath(rel_midi_path)
+    pc_mat = produce_pitch_class_matrix_from_filename(abs_midi_path, aw_size=4.)
+    return apply_dft_to_pitch_class_matrix(pc_mat)
 
-def test_normalization(dft):
-    for how in NORM_METHODS:
-        for i in range(1,7):
-            aa = previous_complex_utm_to_ws_utm(dft, i, magn_stra=how, output_raw_values=True)
-            bb = normalize_dft(dft, how=how, coeff=i)
-            assert np.allclose(aa, bb), f"{how} normalization, coeff={i}"
-            print(f"{how} normalization, coeff={i}: OK")
+class TestColor:
 
-def test_batch_normalization(dft):
-    for how in (how for how in NORM_METHODS if how != 'raw'):
-        batch_normalized = normalize_dft(dft, how=how)
-        assert (batch_normalized[..., 0] <= 1).all(), f"Normalizing all 6 by {how}: Values > 1 remained!"
-        t = [normalize_dft(dft, how=how, coeff=i) for i in range(1, 7)]
-        composed_normalized = np.stack([normalize_dft(dft, how=how, coeff=i) for i in range(1,7)], axis=2)
-        z = complex_utm_to_ws_utm(dft, 1, magn_stra=how, output_raw_values=True)
-        assert np.allclose(composed_normalized, batch_normalized), f"Normalizing all 6 by {how} " \
+    @pytest.mark.parametrize(["how", "coeff"],
+                             product(NORM_METHODS, range(1,7)))
+    def test_normalization(self, dft, how, coeff):
+        aa = previous_complex_utm_to_ws_utm(dft, coeff, magn_stra=how, output_raw_values=True)
+        bb = normalize_dft(dft, how=how, coeff=coeff)
+        normalize_dft(dft, how=how, coeff=coeff)
+        assert np.allclose(aa, bb), f"{how} normalization, coeff={coeff}"
+        print(f"{how} normalization, coeff={coeff}: OK")
+
+    @pytest.mark.parametrize(["how", "indulge_prototypes"],
+                             product(NORM_METHODS, (False, True)))
+    def test_batch_normalization(self, dft, how, indulge_prototypes):
+        batch_normalized = normalize_dft(dft, how=how, coeff=None, indulge_prototypes=indulge_prototypes)
+        if how != 'raw':
+            mags, msg = clip_normalized_floats(batch_normalized[...,0])
+            assert len(msg) == 0, f"'{how}' ({indulge_prototypes}) normalization failed: " + msg
+        individuals = [normalize_dft(dft, how=how, coeff=i, indulge_prototypes=indulge_prototypes)
+                       for i in range(1, 7)]
+        composed_normalized = np.stack(individuals, axis=2)
+        assert np.allclose(composed_normalized, batch_normalized), f"({indulge_prototypes}) Normalizing all 6 by {how} " \
             f"gives other result than normalizing them individually."
-        print(f"Normalizing all 6 by {how}: OK")
+        print(f"({indulge_prototypes}) Normalizing all 6 by {how}: OK")
 
-def test_decimal_rgb(dft):
-    for how in (how for how in NORM_METHODS if how != 'raw'):
-        for rgba in (False, True):
-            for im in (False, True):
-                for ip in (False, True):
-                    for i in range(1,7):
-                        a = previous_complex_utm_to_ws_utm(dft, i, magn_stra=how, output_rgba=rgba, ignore_magnitude=im, ignore_phase=ip, decimal=True)
-                        b = complex_utm_to_ws_utm(dft, i, magn_stra=how, output_rgba=rgba, ignore_magnitude=im, ignore_phase=ip, as_html=False)
-                        info_str = f"normalization: {how}, rgba={rgba}, coeff={i}, ignore_magnitude={im}, ignore_phase={ip}: "
-                        assert np.allclose(a, b), info_str + 'FAIL'
-                        print(info_str + 'OK')
-
-
-if __name__ == "__main__":
-    bach_prelude_midi = os.path.abspath("../midiFiles/210606-Prelude_No._1_BWV_846_in_C_Major.mid")
-    pc_mat_bach = produce_pitch_class_matrix_from_filename(bach_prelude_midi, aw_size=4.)
-    dft_mat_bach = apply_dft_to_pitch_class_matrix(pc_mat_bach)
-    test_decimal_rgb(dft_mat_bach)
-    test_batch_normalization(dft_mat_bach)
-    test_normalization(dft_mat_bach)
+    @pytest.mark.parametrize(["coeff", "how", "rgba", "ig_mag", "ig_phase"],
+                             product(range(1, 7),
+                                     (n for n in NORM_METHODS if n != 'raw'),
+                                     (False, True),
+                                     (False, True),
+                                     (False, True),))
+    def test_decimal_rgb(self, dft, coeff, how, rgba, ig_mag, ig_phase):
+        a = previous_complex_utm_to_ws_utm(dft, coeff, magn_stra=how, output_rgba=rgba, ignore_magnitude=ig_mag, ignore_phase=ig_phase, decimal=True)
+        b =          complex_utm_to_ws_utm(dft, coeff, magn_stra=how, output_rgba=rgba, ignore_magnitude=ig_mag, ignore_phase=ig_phase, as_html=False)
+        info_str = f"normalization: {how}, rgba={rgba}, coeff={coeff}, ignore_magnitude={ig_mag}, ignore_phase={ig_phase}: "
+        if not np.allclose(a, b):
+            mask = ~np.isclose(a, b)
+            a_vals, b_vals = a[mask], b[mask]
+            if not np.isclose((a_vals + b_vals).sum(), mask.sum()): # this is to allow for the different behaviours regarding rests:
+                                                                    # previously, they were left at 0 (black) but natur
+                assert False, info_str + f"Differences: {np.concatenate((a[np.newaxis, mask], b[np.newaxis, mask])).T}"
+        print(info_str + 'OK')
 
 
 
