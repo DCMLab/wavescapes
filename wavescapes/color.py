@@ -22,21 +22,26 @@ def clip_normalized_floats(arr):
     subpassing = arr < 0.
     above, below = surpassing.any(), subpassing.any()
     if above or below:
+        above_vals, below_vals = arr[surpassing], arr[subpassing]
+        above, below = not np.allclose(above_vals, 1), not np.allclose(below_vals, 0)
+        if not above and not below:
+            # means the differences are due to floating point precision errors, no need to warn
+            return np.clip(arr, 0, 1), ''
         fails = surpassing.sum() + subpassing.sum()
         plural = fails > 1
         msg = 'There were ' if plural else 'There was '
         if below:
             n_below = subpassing.sum()
-            mean_below = np.mean(arr[subpassing])
+            mean_below = np.mean(below_vals)
             msg += f"{n_below} value"
-            msg += f"s < 0 (mean={mean_below}) " if n_below > 1 else f" < 0 ({mean_below}) "
+            msg += f"s < 0 (meanΔ={mean_below}) " if n_below > 1 else f" < 0 ({mean_below}) "
         if above:
             n_above = surpassing.sum()
-            mean_above = np.mean(arr[surpassing] - 1.)
+            mean_above = np.mean(above_vals - 1.)
             if below:
                 msg += 'and '
             msg += f"{n_above} value"
-            msg += f"s > 1 (mean={mean_above}) " if n_above > 1 else f" > 1 ({mean_above}) "
+            msg += f"s > 1 (meanΔ={mean_above}) " if n_above > 1 else f" > 1 ({mean_above}) "
         msg += "which had to be clipped."
         return np.clip(arr, 0, 1), msg
     return arr, ''
