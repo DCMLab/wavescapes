@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import numpy as np
 import math
 
@@ -152,7 +154,8 @@ def circular_hue(mag_phase_mx, output_rgba=False, ignore_magnitude=False, ignore
 
 
 def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_raw_values=False,
-                          ignore_magnitude=False, ignore_phase=False, as_html=True):
+                          ignore_magnitude=False, ignore_phase=False, as_html=True,
+                          indulge_prototype=False):
     """
     Converts an upper triangle matrix filled with Fourier coefficients into
     an upper triangle matrix filled with color values that serves as the mathematical model
@@ -167,28 +170,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
         number between 1 to 6, will define which coefficient plot will be visualised in the outputted upper triangle matrix.
 
     magn_stra : {'0c', 'boost', 'max', 'max_weighted', 'raw'}, optional
-        Since the magnitude is unbounded, but its grayscale visual representation needs to be bounded,
-        Different normalisation of the magnitude are possible to constrain it to a value between 0 and 1.
-        Below is the listing of the different value accepted for the argument magn_stra
-        - '0c' : default normalisation, will normalise each magnitude by the 0th coefficient
-            (which corresponds to the sum of the weight of each pitch class). This ensures only
-            pitch class distribution whose periodicity exactly match the coefficient's periodicity can
-            reach the value of 1.
-        - 'post_norm' : based on the 0c normalisation but "boost" the space of all normalized magnitude so
-                    the maximum magnitude observable is set to the max opacity value. This means that if any PCV in the
-                    utm given as input reaches the 0c normalized magnitude of 1, this parameter acts like
-                    the '0c' one. This magn_strat should be used with audio input mainly, as seldom PCV derived
-                    from audio data can reach the maximal value of normalized magnitude for any coefficient.
-        - 'max': set the grayscal value 1 to the maximum possible magnitude in the wavescape, and interpolate linearly
-            all other values of magnitude based on that maximum value set to 1. Warning: will bias the visual representation
-            in a way that the top of the visualisation will display much more magnitude than lower levels.
-        - 'max_weighted': same principle as max, except the maximum magnitude is now taken at the hierarchical level,
-            in other words, each level will have a different opacity mapping, with the value 1 set to the maximum magnitude
-            at this level. This normalisation is an attempt to remove the bias toward higher hierarchical level that is introduced
-            by the 'max' magnitude process cited previously.
-        - 'raw' : does not normalize the magnitude at all. Can break the wavescapes pipeline as the
-            raw magnitude values cannot be mapped in
-        Default value is '0c'
+        Normalization method used by :py:func:`normalize_dft`.
 
     ignore_magnitude : bool, optional
         Determines whether to remove the opacity mapping from the color mapping
@@ -223,6 +205,10 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
         accessible through the aggregate function "generate_single_wavescape" and "generate_all_wavescapes"
         Default value is False (rgb(a) values are outputted)
 
+    indulge_prototypes : bool, optional
+        Parameter passed to :py:func:`normalize_dft`.
+
+
     Returns
     -------
     numpy.ndarray
@@ -230,7 +216,7 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
         values corresponding to the color mapping of a single Fourier coefficient from the input, or
         the angle and magnitudes of a certain coefficient.
     """
-    mag_phase_mx = normalize_dft(utm, how=magn_stra, coeff=coeff)
+    mag_phase_mx = normalize_dft(utm, how=magn_stra, coeff=coeff, indulge_prototypes=indulge_prototype)
     if output_raw_values:
         return mag_phase_mx
     elif magn_stra == 'raw':
@@ -240,7 +226,50 @@ def complex_utm_to_ws_utm(utm, coeff, magn_stra='0c', output_rgba=False, output_
     return circular_hue(mag_phase_mx, output_rgba, ignore_magnitude, ignore_phase, as_html=as_html)
 
 
-def normalize_dft(dft=None, how='0c', coeff=None):
+coeff2max_angle = {
+    1: math.pi / 6,  # 30°
+    2: math.pi / 3,  # 60°
+    3: math.pi / 2,  # 90°
+    4: math.tau / 3,  # 120°
+    5: math.pi / 6,  # 30°
+}
+coeff2beta = {
+    1: 5 / 12 * math.pi,
+    2: math.pi / 3,
+    3: math.pi / 4,
+    4: math.pi / 6,
+    5: 5 / 12 * math.pi
+}
+
+@lru_cache
+def phase2max_magnitude(alpha, coeff):
+    """ Compute maximally possible magnitude for a given phase (angle alpha) and coefficient."""
+    if coeff in (0,6) or alpha == 0:
+        return 1.0
+    alpha = alpha % coeff2max_angle[coeff]
+    beta = coeff2beta[coeff]
+    gamma = math.pi - beta - alpha
+    return np.sin(beta) / np.sin(gamma)
+
+def normalize_mag_by_phase(c, coeff):
+    """Takes a complex number and normalizes the magnitude by the magnitude that
+    is maximally possible for the given coefficient at that phase."""
+    mag, phase = abs(c), np.angle(c)
+    if coeff in (0, 6) or phase == 0:
+        return np.array([mag, phase])
+    max_possible_mag = phase2max_magnitude(phase, coeff)
+    return np.array([mag / max_possible_mag, phase])
+
+def max_possible_mags(complex_coeffs, coeff=None):
+    """Apply this along the last axis of a matrix of (...,7) DFT coefficients."""
+    cc = complex_coeffs.flatten()
+    assert cc.shape[0] == 7, f"This function operates on vectors of 7 complex numbers but got shape {complex_coeffs.shape}"
+    if coeff is None:
+        return np.array([normalize_mag_by_phase(c, i) for i, c in enumerate(cc[1:], 1)])
+    return np.array(normalize_mag_by_phase(cc[coeff], coeff))
+
+
+def normalize_dft(dft=None, how='0c', coeff=None, indulge_prototypes=False):
     """ Converts complex numbers into magnitude and phase and normalizes the magnitude by one of
     several possible approaches.
 
@@ -250,10 +279,42 @@ def normalize_dft(dft=None, how='0c', coeff=None):
         An (NxNx7) upper triangular matrix of complex numbers (although the last dimension could
         be larger in principle).
     how : {'0c', 'post_norm', 'max', 'max_weighted', 'raw'}
-        See above.
+        Since the magnitude is unbounded, but its grayscale visual representation needs to be bounded,
+        Different normalisation of the magnitude are possible to constrain it to a value between 0 and 1.
+        Below is the listing of the different value accepted for the argument magn_stra
+        - '0c' : default normalisation, will normalise each magnitude by the 0th coefficient
+            (which corresponds to the sum of the weight of each pitch class). This ensures only
+            pitch class distribution whose periodicity exactly match the coefficient's periodicity can
+            reach the value of 1.
+        - 'post_norm' : based on the 0c normalisation but "boost" the space of all normalized magnitude so
+                    the maximum magnitude observable is set to the max opacity value. This means that if any PCV in the
+                    utm given as input reaches the 0c normalized magnitude of 1, this parameter acts like
+                    the '0c' one. This magn_strat should be used with audio input mainly, as seldom PCV derived
+                    from audio data can reach the maximal value of normalized magnitude for any coefficient.
+        - 'max': set the grayscal value 1 to the maximum possible magnitude in the wavescape, and interpolate linearly
+            all other values of magnitude based on that maximum value set to 1. Warning: will bias the visual representation
+            in a way that the top of the visualisation will display much more magnitude than lower levels.
+        - 'max_weighted': same principle as max, except the maximum magnitude is now taken at the hierarchical level,
+            in other words, each level will have a different opacity mapping, with the value 1 set to the maximum magnitude
+            at this level. This normalisation is an attempt to remove the bias toward higher hierarchical level that is introduced
+            by the 'max' magnitude process cited previously.
+        - 'raw' : does not normalize the magnitude at all. Can break the wavescapes pipeline as the
+            raw magnitude values cannot be mapped in
+        Default value is '0c'
     coeff : int, optional
         By default, the normalization is performed on all coefficients and an (NxNx7x2) matrix is
         returned. Pass an integer to select only one of them.
+    indulge_prototypes : bool, optional
+        This is an additional normalization that can be combined with any other. Since magnitudes
+        of 1 are possible only for prototype phases sitting on the unit circle, you can set this
+        parameter to True to normalize the magnitudes by the maximally achievable magnitude given
+        the phase which is bounded by straight lines between adjacent prototypes. The pitch class
+        vectors that benefit most from this normalization in terms of magnitude gain are those
+        whose phase is exactly between two prototypes, such as the "octatonic" combination O₀,₁.
+        The maximal "boosting" factors for the first 5 coefficients are
+        {1: 1.035276, 2: 1.15470, 3: 1.30656, 4: 2.0, 5: 1.035276}. The sixth coefficient's phase
+        can only be 0 or pi so it remains unchanged. Use this option if you want to compensate
+        for the smaller magnitude space of the middle coefficients.
 
     Returns
     -------
@@ -261,7 +322,11 @@ def normalize_dft(dft=None, how='0c', coeff=None):
         (NxNx7x2) if coeff is None, else (NxNx2). In both cases the last dimension contains
         (normalized magnitude, phase) pairs.
     """
-    if coeff is None:
+    if indulge_prototypes:
+        normalized_by_max_possible_magn_given_phase = np.apply_along_axis(max_possible_mags, -1, dft, coeff)
+        axes = normalized_by_max_possible_magn_given_phase.ndim - 1
+        mags, phases = normalized_by_max_possible_magn_given_phase.transpose(axes, *range(axes))
+    elif coeff is None:
         mags, phases = np.abs(dft[..., 1:]), np.angle(dft[..., 1:])
     else:
         mags, phases = np.abs(dft[..., coeff]), np.angle(dft[..., coeff])
