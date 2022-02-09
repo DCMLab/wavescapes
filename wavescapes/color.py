@@ -100,12 +100,11 @@ def circular_hue(mag_phase_mx, output_rgba=False, ignore_magnitude=False, ignore
     else:
         one, two, *_ = other_dimensions
         is_square = one == two
-    if not (ignore_magnitude and ignore_magnitude):
-        mags = mag_phase_mx[..., [0]]
-        mags, msg = clip_normalized_floats(mags)
-        if len(msg) > 0:
-            msg = "Incorrect magnitudes passed to circular_hue(): " + msg
-            print(msg)
+    mags = mag_phase_mx[..., [0]]
+    mags, msg = clip_normalized_floats(mags)
+    if len(msg) > 0:
+        msg = "Incorrect magnitudes passed to circular_hue(), use normalize_dft() before. " + msg
+        print(msg)
     if not ignore_phase:
         angles = mag_phase_mx[..., [1]] % math.tau
         if deg:
@@ -127,10 +126,8 @@ def circular_hue(mag_phase_mx, output_rgba=False, ignore_magnitude=False, ignore
             return rgb
         return np.apply_along_axis(to_hex, 2, rgb, output_rgba)
     # interpret normalized phases as hue and convert to HSV colors by adding S=V=1
-    sv_dimensions = np.ones(other_dimensions + (2,))
-    hsv = np.concatenate((angles, sv_dimensions), axis=-1)
-    if is_square:
-        reset_tril(hsv)
+    s_and_v_dimension = mags.any(axis=-1, keepdims=True) * 1.
+    hsv = np.concatenate((angles, s_and_v_dimension, s_and_v_dimension), axis=-1)
     rgb = hsv_to_rgb(hsv)
     if output_rgba:
         if ignore_magnitude:
