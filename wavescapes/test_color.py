@@ -4,9 +4,8 @@ from itertools import product
 import numpy as np
 
 from wavescapes.pcv import produce_pitch_class_matrix_from_filename
-from wavescapes.dft import apply_dft_to_pitch_class_matrix
-from wavescapes.color import complex_utm_to_ws_utm, normalize_dft, clip_normalized_floats
-
+from wavescapes.dft import apply_dft_to_pitch_class_matrix, clip_normalized_floats, normalize_dft
+from wavescapes.color import complex_utm_to_ws_utm
 
 from warnings import warn
 
