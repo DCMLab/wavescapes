@@ -116,10 +116,10 @@ def circular_hue(mag_phase_mx, output_rgba=False, ignore_magnitude=False, ignore
         dims = 4 if output_rgba else 3
         if ignore_magnitude:
             if as_html:
-                nothing = "#00000000" if output_rgba else "#000000"
+                nothing = "#ffffffff" if output_rgba else "#ffffff"
                 return np.full(other_dimensions, nothing)
             else:
-                return np.zeros(other_dimensions + (dims,))
+                return np.ones(other_dimensions + (dims,))
         rgb = np.dstack([1 - mags] * dims)
         if is_square:
             reset_tril(rgb)
@@ -140,8 +140,8 @@ def circular_hue(mag_phase_mx, output_rgba=False, ignore_magnitude=False, ignore
     elif not ignore_magnitude:
         # this is the default case where no alpha channel is returned so that the opacity that
         # reflects the magnitude is achieved by merging the colors with the background color
+        rgb_dims = rgb.shape
         if background is None:
-            rgb_dims = rgb.shape
             bckg = np.broadcast_to(1. - mags, rgb_dims) # the amount of white
         else:
             bckg = np.broadcast_to(1. - mags, rgb_dims) * np.broadcast_to(background, rgb_dims)
@@ -334,11 +334,12 @@ def normalize_dft(dft=None, how='0c', coeff=None, indulge_prototypes=False):
     def concat_mags_phases():
         """Produce the function result by concatenating magnitudes and phases."""
         nonlocal mags, phases
-        if not 'raw':
+        if not how == 'raw':
             mags, msg = clip_normalized_floats(mags)
             if len(msg) > 0:
                 msg = f"Normalizing by '{how}' left unnormalized values: " + msg
                 print(msg)
+
         if coeff is None:
             return np.stack((mags, phases), axis=-1)
         return np.dstack((mags, phases))
@@ -353,7 +354,7 @@ def normalize_dft(dft=None, how='0c', coeff=None, indulge_prototypes=False):
             norm_by = np.real(dft[..., 0])
     elif how == 'max':
         if coeff is None:
-            norm_by = mags.max(axis=1, keepdims=True).max(axis=0, keepdims=True)
+            norm_by = mags.max(axis=(1, 0), keepdims=True)
         else:
             norm_by = mags.max()
     elif how == 'max_weighted':
@@ -361,11 +362,11 @@ def normalize_dft(dft=None, how='0c', coeff=None, indulge_prototypes=False):
             norm_by = mags.max(axis=-2, keepdims=True)
         else:
             norm_by = mags.max(axis=-1, keepdims=True)
-    mags = np.divide(mags, norm_by, out=np.empty_like(mags), where=norm_by > 0)
+    mags = np.divide(mags, norm_by, out=np.zeros_like(mags), where=norm_by > 0)
     reset_tril(mags)
     if how == 'post_norm':
         if coeff is None:
-            mags = mags / mags.max(axis=1, keepdims=True).max(axis=0, keepdims=True)
+            mags = mags / mags.max(axis=(1, 0), keepdims=True)
         else:
             mags = mags / mags.max()
     return concat_mags_phases()
