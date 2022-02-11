@@ -262,7 +262,7 @@ class Wavescape(object):
                                                                             primitive_width, primitive_height) 
 
     def draw(self, ax=None, aw_per_tick = None, tick_offset=0, tick_start=0, tick_factor=1, subparts_highlighted = None,
-             indicator_size = None, add_line = None, label=None, label_size=None):
+             indicator_size = None, add_line = None, label=None, label_size=None, tight_layout=True):
         '''
         After being called on a properly initialised instance of a Wavescape object,
         this method draws the visual plot known as "wavescape" and generate a 
@@ -346,6 +346,10 @@ class Wavescape(object):
             Determine the size of the top-left label and the tick number labels if provided
             Default value is None (in which case the default 
             size of the labels is the width of the plot divided by 30)
+
+        tight_layout : bool, optional
+            By default, the figure is corrected for overlaps between labels and wavescapes. However,
+            this takes up substantial resources, so you can pass False to skip this step.
 
         Returns
         -------
@@ -484,7 +488,7 @@ class Wavescape(object):
             warn(msg)
             
         labelsize = label_size if label_size else self.width/30.
-        
+
         if aw_per_tick:
             indiv_w = primitive_half_width*2
             
@@ -526,7 +530,7 @@ class Wavescape(object):
         if add_line:
             bb_l += -add_line
             bb_r += add_line
-        
+
         if label:
             new_width = np.abs(bb_l - bb_r)
             new_height = np.abs(bb_b - bb_t)
@@ -538,4 +542,6 @@ class Wavescape(object):
         #remove top and bottom margins 
         ax.set_ylim(bottom=bb_b, top=bb_t)
         ax.set_xlim(left=bb_l, right=bb_r)
-        plt.tight_layout()
+        if tight_layout:
+            print("Tight layout...")
+            plt.tight_layout()
