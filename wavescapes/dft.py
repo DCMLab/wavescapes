@@ -11,12 +11,12 @@ def reset_tril(arr):
     n = arr.shape[0]
     arr[np.tril_indices(n, k=-1)] = 0
 
-def build_utm_from_one_row(first_row, reset_ltm=True):
+def build_utm_from_one_row(first_row, long=False, reset_ltm=True):
     """
     given a NxM matrix representing N adjacent segments
     of a piece by M numbers each, this function creates a
     NxNxM upper triangular matrix ("triu") starting with
-    the given matrix as the first. All rows below (i >= 1)
+    the given matrix as the first row. All rows below (i >= 1)
     are created by summing for each row's element
     (i, j) the upper left neighbour (i-1, j-i) with (0, j).
     This method of summing builds an upper-triangle-matrix
@@ -27,27 +27,40 @@ def build_utm_from_one_row(first_row, reset_ltm=True):
     first_row: np.array
         Expects a 2D array where rows represent adjacent segments of a piece. They could be,
         for instance, beat-wise DFT coefficients or slice-wise pitch class profiles.
+    long : bool, optional
+        By default, the upper triangle matrix will be returned as a square matrix where the
+        lower left triangle beneath the diagonal is filled with irrelevant values (see `reset_ltm`).
+        Pass True to obtain the UTM in long format instead.
     reset_ltm: bool, optional
-        The ltm (lower triangular matrix, "tril") contains irrelevant non-zero values. By default,
-        these are overwritten with 0 to avoid confusion. Pass False to skip this step.
+        If not `long`, the ltm (lower triangular matrix, "tril") contains irrelevant non-zero values.
+        By default, these are overwritten with 0 to avoid confusion. Pass False to skip this step.
 
     Returns
     -------
     np.array
-
+        (N(N+1)/2, M) if long else (N, N, M)
     """
-    def pad_previous(a, b):
-        """Shift the previous row to the right by prepending a zero and add. ``b`` is ignored."""
+
+    def shorten_previous(a, b):
+        """Shift the previous row to the right by dropping the last element, and add."""
+        return first_row[b:] + a[:-1]
+
+    def pad_previous(a, _):
+        """Shift the previous row to the right by prepending a zero, and add."""
         return first_row + np.pad(a, ((1, 0), (0, 0)))[:-1]
+
     first_row = np.atleast_2d(first_row)
     n_segments = first_row.shape[0]
-    result = np.array(list(accumulate(range(n_segments - 1), pad_previous, initial=first_row)))
-    if reset_ltm:
-        reset_tril(result)
+    if long:
+        result = np.vstack(list(accumulate(range(1, n_segments), shorten_previous, initial=first_row)))
+    else:
+        result = np.array(list(accumulate(range(1, n_segments), pad_previous, initial=first_row)))
+        if reset_ltm:
+            reset_tril(result)
     return result
 
 
-def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
+def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True, long=False):
     """
     This functions takes a list of N pitch class distributions,
     modelised by a matrix of float numbers, and apply the 
@@ -63,6 +76,10 @@ def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
         As the DFT is linear, the computation of all hierarchical levels can be done at a later sate,
         thus saving some space (O(n) instead of O(n^2)).
         Default value is True.
+    long : bool, optional
+        By default, if `build_utm`, the upper triangle matrix will be returned as a square matrix
+        where the lower left triangle beneath the diagonal is filled with zeros.
+        Pass True to obtain the UTM in long format instead.
     
     Returns
     -------
@@ -79,7 +96,7 @@ def apply_dft_to_pitch_class_matrix(pc_mat, build_utm = True):
     res = np.fft.fft(pc_mat)[:, :coeff_nmb] #coeff 7 to 11 are uninteresting (conjugates of coeff 6 to 1).
     
     if build_utm:
-        res = build_utm_from_one_row(res)
+        res = build_utm_from_one_row(res, long=long)
         
     return res
 
