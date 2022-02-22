@@ -16,6 +16,14 @@ pip install wavescapes
 
 Depending on which default python distribution you have, `pip3` instead of `pip` might be used. This library only works with a version of python that is 3.6 or higher.
 
+The current version of the library has a dependency that is sometimes tricky to install, if during installation from pip, you encounter several warning messages ending with the following two lines:
+
+```
+ERROR: Could not find a version that satisfies the requirement madmom (from wavescapes) (from versions: 0.12, 0.12.1, 0.13, 0.13.1, 0.13.2, 0.14, 0.14.1, 0.15, 0.15.1, 0.16, 0.16.1)
+ERROR: No matching distribution found for madmom
+```
+You can resolve the issue by installing cython (`pip install cython`) and then restart the intallation of wavescapes. More information on the matter [in this issue](https://github.com/DCMLab/wavescapes/issues/15). 
+
 Below is the list of packages required in order for this library to work. Link to the package's official webpage, and a short description of its usage in this project is specified. Explanations on how to install each of these can be found on each package's hyperlink.
 
 * [numpy](https://numpy.org/) used for vector operations, the DFT operations, and in order to model the wavescapes as a matrix of colored values. 
