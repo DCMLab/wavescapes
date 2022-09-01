@@ -543,5 +543,4 @@ class Wavescape(object):
         ax.set_ylim(bottom=bb_b, top=bb_t)
         ax.set_xlim(left=bb_l, right=bb_r)
         if tight_layout:
-            print("Tight layout...")
             plt.tight_layout()

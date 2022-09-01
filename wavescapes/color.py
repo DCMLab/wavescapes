@@ -81,7 +81,7 @@ def circular_hue(mag_phase_mx, output_rgba=False, ignore_magnitude=False, ignore
             reset_tril(rgb)
         if not as_html:
             return rgb
-        return np.apply_along_axis(to_hex, 2, rgb, output_rgba)
+        return np.apply_along_axis(to_hex, -1, rgb, output_rgba)
     # interpret normalized phases as hue and convert to HSV colors by adding S=V=1
     s_and_v_dimension = mags.any(axis=-1, keepdims=True) * 1.
     hsv = np.concatenate((angles, s_and_v_dimension, s_and_v_dimension), axis=-1)
