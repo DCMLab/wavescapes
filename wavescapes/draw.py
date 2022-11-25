@@ -194,13 +194,11 @@ class Wavescape(object):
         self.width = width
         self.primitive = primitive
         
-        mat_dim, mat_dim_other_axis, mat_depth = utm.shape
+        mat_dim, mat_dim_other_axis = utm.shape
         if mat_dim != mat_dim_other_axis:
             raise Exception("The upper triangle matrix is not a square matrix")
         if mat_dim > self.width/2:
             raise Exception("The number of elements to be drawn exceeds the wavescape's resolution.(%d elements out of %d allowed by the resolution) Increase the width of the plot to solve this issue" % (mat_dim, self.width/2))
-        if (mat_depth < 3 or mat_depth > 4):
-            raise Exception("The upper triangle matrix given as argument does not hold either RGB or RGBA values")
         self.mat_dim = mat_dim
         
         #building a matrix with None to hold the element object for drawing them later.
@@ -255,16 +253,16 @@ class Wavescape(object):
         primitive_width = self.width/float(self.mat_dim)
         primitive_height = get_primitive_height(self.primitive, primitive_width)
         
-        for y in range(self.mat_dim):
-            for x in range(y, self.mat_dim):
-                curr_color = rgb_to_hex(self.utm[y][x])
+        for grouped_segments in range(self.mat_dim):
+            for last_segment in range(grouped_segments, self.mat_dim):
+                curr_color = self.utm[grouped_segments][last_segment]
                 if curr_color:
-                    self.matrix_primitive[y][x] = new_primitive_with_coords(curr_color, x, y, half_width_shift,
+                    self.matrix_primitive[grouped_segments][last_segment] = new_primitive_with_coords(curr_color, last_segment, grouped_segments, half_width_shift,
                                                                             half_height_shift, self.primitive,
                                                                             primitive_width, primitive_height) 
 
     def draw(self, ax=None, aw_per_tick = None, tick_offset=0, tick_start=0, tick_factor=1, subparts_highlighted = None,
-             indicator_size = None, add_line = None, label=None, label_size=None):
+             indicator_size = None, add_line = None, label=None, label_size=None, tight_layout=True):
         '''
         After being called on a properly initialised instance of a Wavescape object,
         this method draws the visual plot known as "wavescape" and generate a 
@@ -349,6 +347,10 @@ class Wavescape(object):
             Default value is None (in which case the default 
             size of the labels is the width of the plot divided by 30)
 
+        tight_layout : bool, optional
+            By default, the figure is corrected for overlaps between labels and wavescapes. However,
+            this takes up substantial resources, so you can pass False to skip this step.
+
         Returns
         -------
         Nothing, but a matplotlib.pyplot figure is produced by this method, and any method of pyplot
@@ -357,8 +359,8 @@ class Wavescape(object):
         '''
         
         start_primitive_idx = 0
-        utm_w = self.matrix_primitive.shape[0]
-        utm_h = self.matrix_primitive.shape[1]
+        utm_h = self.matrix_primitive.shape[0]
+        utm_w = self.matrix_primitive.shape[1]
         
         if self.matrix_primitive is None or utm_w < 1 or utm_h < 1:
             raise Exception("Cannot draw when there is nothing to draw.")
@@ -438,9 +440,9 @@ class Wavescape(object):
             ax = fig.add_subplot(111, aspect='equal')
         
 
-        for y in range(utm_h):
-            for x in range(start_primitive_idx+y, utm_w):
-                element = self.matrix_primitive[y][x]
+        for grouped_segments in range(utm_h):
+            for last_segment in range(start_primitive_idx+grouped_segments, utm_w):
+                element = self.matrix_primitive[grouped_segments][last_segment]
                 #array of primitive is by default filled with None value, this avoid that.
                 if element:
                     ax.add_patch(element.draw(stroke=add_line))
@@ -486,7 +488,7 @@ class Wavescape(object):
             warn(msg)
             
         labelsize = label_size if label_size else self.width/30.
-        
+
         if aw_per_tick:
             indiv_w = primitive_half_width*2
             
@@ -528,7 +530,7 @@ class Wavescape(object):
         if add_line:
             bb_l += -add_line
             bb_r += add_line
-        
+
         if label:
             new_width = np.abs(bb_l - bb_r)
             new_height = np.abs(bb_b - bb_t)
@@ -540,4 +542,5 @@ class Wavescape(object):
         #remove top and bottom margins 
         ax.set_ylim(bottom=bb_b, top=bb_t)
         ax.set_xlim(left=bb_l, right=bb_r)
-        plt.tight_layout()
+        if tight_layout:
+            plt.tight_layout()

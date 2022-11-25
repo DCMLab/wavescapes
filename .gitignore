@@ -12,3 +12,4 @@ tutorials/wavescapes
 dist/
 build/
 midifFiles/*.png
+.idea/

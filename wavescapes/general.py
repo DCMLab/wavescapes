@@ -82,6 +82,12 @@ def single_wavescape(filepath, width, coefficient, aw_size=1, save_label=None,
     tick_factor: float, optional
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is 1.0
+
+    ignore_magnitude: bool, optional
+        Set to True to plot without magnitude.
+
+    ignore_phase: bool, optional
+        Set to True to plot without phase.
     
     indicator_size: float, optional 
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
@@ -112,12 +118,113 @@ def single_wavescape(filepath, width, coefficient, aw_size=1, save_label=None,
     pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size, deep_chroma=deep_chroma,
                                                       trim_extremities=trim_extremities,
                                                       remove_unpitched_tracks=remove_unpitched_tracks)
+    single_wavescape_from_pcvs(pc_mat, width, coefficient, save_label, magn_stra, output_rgba,
+                               primitive, aw_per_tick, tick_offset, tick_start, tick_factor,
+                               ignore_magnitude, ignore_phase, indicator_size, add_line,
+                               subparts_highlighted, label, label_size, ax)
+
+
+def single_wavescape_from_pcvs(pc_mat, width, coefficient, save_label=None, magn_stra='0c',
+                               output_rgba=False, primitive=Wavescape.RHOMBUS_STR,
+                               aw_per_tick=None, tick_offset=0, tick_start=0, tick_factor=1,
+                               ignore_magnitude=False, ignore_phase=False,
+                               indicator_size=None, add_line=False, subparts_highlighted=None,
+                               label=None, label_size=None, ax=None):
+    """
+
+    Parameters
+    ----------
+
+    pc_mat : numpy.array
+        A (n, m) array with n pitch class vectors of size m (number of pitch classes, generally 12).
+        Each vector corresponds to the pitch classes' summed durations for a segment of the piece.
+        They will be summed to form the higher levels in a (n, n, m)-dimensional triangular matrix.
+
+    width: int
+        the width in pixel of the wavescape. The height is dependant on both the width and
+        the drawing primitive used, and as such, cannot be decided by the user of this function
+
+    coefficient: int, between 1 and 6 (included)
+        Index of the Fourier coefficient that is visualised in the wavescape plot. For more details,
+        see the doc of ''
+
+    save_label: str, optional
+        if provided, save the resulting plot in the label indicated. Internally will call matplotlib.pyplot.savefig
+        with this parameter, so the file format can (and must) be specified as an extension in this parameter
+        Default value is None
+
+    magn_stra: str, optional
+        see the doc 'complex_utm_to_ws_utm' for information on this parameter
+        Default value is '0c'
+
+    output_rgba:
+        see the doc 'complex_utm_to_ws_utm' for information on this parameter
+        Default value is '0c'
+
+    primitive: str, optional
+        see the doc of the constructor of the class 'Wavescape' for information on this parameter.
+        Default value is Wavescape.RHOMBUS_STR (i.e. 'rhombus')
+
+    aw_per_tick: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None (meaning no ticks are drawn)
+
+    tick_offset: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 0
+
+    tick_start: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 0
+
+    tick_factor: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 1.0
+
+    ignore_magnitude: bool, optional
+        Set to True to plot without magnitude.
+
+    ignore_phase: bool, optional
+        Set to True to plot without phase.
+
+    indicator_size: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None
+
+    add_line: numeric value, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is False
+
+    subparts_highlighted: array of tuples, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None
+
+    label: str, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None
+
+    label_size: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None (in which case the default
+        size of the labels is the width of the plot divided by 30)
+
+    ax: matplotlib figure, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None.
+
+    Returns
+    -------
+
+    """
     fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat, build_utm=True)
-    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra, output_rgba=output_rgba,
+    color_mat = complex_utm_to_ws_utm(fourier_mat, coeff=coefficient, magn_stra=magn_stra,
+                                      output_rgba=output_rgba,
                                       ignore_magnitude=ignore_magnitude, ignore_phase=ignore_phase)
     ws = Wavescape(color_mat, width=width, primitive=primitive)
-    ws.draw(indicator_size=indicator_size, aw_per_tick=aw_per_tick, tick_start=tick_start, tick_offset=tick_offset, tick_factor=tick_factor,
-            add_line=add_line, subparts_highlighted=subparts_highlighted, label=label, label_size=label_size, ax=ax)
+    ws.draw(indicator_size=indicator_size, aw_per_tick=aw_per_tick, tick_start=tick_start,
+            tick_offset=tick_offset, tick_factor=tick_factor,
+            add_line=add_line, subparts_highlighted=subparts_highlighted, label=label,
+            label_size=label_size, ax=ax)
     if save_label:
         plt.savefig(save_label, transparent=output_rgba)
 
@@ -204,6 +311,12 @@ def all_wavescapes(filepath,individual_width, save_label=None,
     tick_factor: float, optional
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
         Default value is 1.0
+
+    ignore_magnitude: bool, optional
+        Set to True to plot without magnitude.
+
+    ignore_phase: bool, optional
+        Set to True to plot without phase.
     
     indicator_size: boolean, optional 
         see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
@@ -226,31 +339,130 @@ def all_wavescapes(filepath,individual_width, save_label=None,
     pc_mat = produce_pitch_class_matrix_from_filename(filepath, aw_size=aw_size,
                                                       remove_unpitched_tracks=remove_unpitched_tracks,
                                                       trim_extremities=trim_extremities, deep_chroma=deep_chroma)
-    fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat)
+    all_wavescapes_from_pcvs(pc_mat, individual_width, save_label, magn_stra, output_rgba,
+                             primitive, aw_per_tick, tick_offset, tick_start, tick_factor,
+                             ignore_magnitude, ignore_phase, indicator_size, add_line,
+                             subparts_highlighted, label_size)
 
+    
+def all_wavescapes_from_pcvs(pc_mat, individual_width, save_label=None, magn_stra='0c',
+                             output_rgba=False, primitive=Wavescape.RHOMBUS_STR,
+                             aw_per_tick=None, tick_offset=0, tick_start=0, tick_factor=1.,
+                             ignore_magnitude=False, ignore_phase=False,
+                             indicator_size=None, add_line=False, subparts_highlighted=None,
+                             label_size=None):
+    """
+
+    Parameters
+    ----------
+
+    pc_mat : numpy.array
+        A (n, m) array with n pitch class vectors of size m (number of pitch classes, generally 12).
+        Each vector corresponds to the pitch classes' summed durations for a segment of the piece.
+        They will be summed to form the higher levels in a (n, n, m)-dimensional triangular matrix.
+
+    individual_width: int
+        the width in pixel of each individual wavescapes. If no save label is provided,
+        then the resulting plot holds all 6 plots and consequently has 3*individual_width
+        as width, and a height of two individual wavescapes (the hieght of a wavescape is
+        dependent on the width and drawing primitive used)
+
+    save_label: str, optional
+        The prefix of the filepath to save each individual plot. If it has the (default)
+        value of `None`, then the function produces all six plots into a single 3 by 2 figure
+        and don't save it in PNG format (but this can be easily achieved by calling the "saveFig"
+        function of matplotlib.pyplot after this one)
+        The path can be absolute or relative, however, it should not hold any file extensions at the end,
+        as it is generated by this function.
+        For example, if the value "bach" is given for this parameter, then the following files will be created:
+        bach1.png, bach2.png, bach3.png, bach4.png, bach5.png and bach6.png
+        Each number preceding the PNG extension indicates which coefficient is vizualized in the file.
+        Default value is None.
+
+    magn_stra: str, optional
+        see the doc 'complex_utm_to_ws_utm' for information on this parameter
+        Default value is '0c'
+
+    output_rgba:
+        see the doc 'complex_utm_to_ws_utm' for information on this parameter
+        Default value is '0c'
+
+    primitive: str, optional
+        see the doc of the constructor of the class 'Wavescape' for information on this parameter.
+        Default value is Wavescape.RHOMBUS_STR (i.e. 'rhombus')
+
+    aw_per_tick: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None (meaning no ticks are drawn)
+
+    tick_offset: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None (meaning ticks numbers start at 0)
+
+    tick_start: int, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 0
+
+    tick_factor: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is 1.0
+
+    ignore_magnitude: bool, optional
+        Set to True to plot without magnitude.
+
+    ignore_phase: bool, optional
+        Set to True to plot without phase.
+
+    indicator_size: boolean, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is True
+
+    add_line: numeric value, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is False
+
+    subparts_highlighted: array of tuples, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None
+
+    label_size: float, optional
+        see the doc the 'draw' method from the class 'Wavescape' for information on this parameter.
+        Default value is None (in which case the default
+        size of the labels is the width of one individual plot divided by 30)
+
+    Returns
+    -------
+
+    """
+    fourier_mat = apply_dft_to_pitch_class_matrix(pc_mat)
     dpi = 96  # (most common dpi values for computers' screen)
-    total_width = (3.1*individual_width)/dpi
-    total_height = (2.1*compute_plot_height(individual_width, fourier_mat.shape[0], primitive))/dpi
+    total_width = (3.1 * individual_width) / dpi
+    total_height = (2.1 * compute_plot_height(individual_width, fourier_mat.shape[0],
+                                              primitive)) / dpi
     if not save_label:
         fig = plt.figure(figsize=(total_width, total_height), dpi=dpi)
-        
     for i in range(1, 7):
-        color_utm = complex_utm_to_ws_utm(fourier_mat, coeff=i, magn_stra=magn_stra, output_rgba=output_rgba,
-                                          ignore_magnitude=ignore_magnitude, ignore_phase=ignore_phase)
+        color_utm = complex_utm_to_ws_utm(fourier_mat, coeff=i, magn_stra=magn_stra,
+                                          output_rgba=output_rgba,
+                                          ignore_magnitude=ignore_magnitude,
+                                          ignore_phase=ignore_phase)
         w = Wavescape(color_utm, width=individual_width, primitive=primitive)
         if save_label:
             w.draw(indicator_size=indicator_size, add_line=add_line,
-                   aw_per_tick=aw_per_tick, tick_offset=tick_offset, tick_start=tick_start, tick_factor=tick_factor,
+                   aw_per_tick=aw_per_tick, tick_offset=tick_offset, tick_start=tick_start,
+                   tick_factor=tick_factor,
                    subparts_highlighted=subparts_highlighted, label_size=label_size)
             plt.tight_layout()
-            plt.savefig(save_label+str(i)+'.png', bbox_inches='tight', transparent=output_rgba)
+            plt.savefig(save_label + str(i) + '.png', bbox_inches='tight', transparent=output_rgba)
         else:
-            ax = fig.add_subplot(2, 3, i, aspect='equal')  # TODO: what if fig was not initialised above?
+            ax = fig.add_subplot(2, 3, i,
+                                 aspect='equal')  # TODO: what if fig was not initialised above?
             w.draw(ax=ax, indicator_size=indicator_size, add_line=add_line,
-                   aw_per_tick=aw_per_tick, tick_offset=tick_offset, tick_start=tick_start, tick_factor=tick_factor,
-                   label=coeff_nbr_to_label(i) + ' coeff.', subparts_highlighted=subparts_highlighted,
+                   aw_per_tick=aw_per_tick, tick_offset=tick_offset, tick_start=tick_start,
+                   tick_factor=tick_factor,
+                   label=coeff_nbr_to_label(i) + ' coeff.',
+                   subparts_highlighted=subparts_highlighted,
                    label_size=label_size)
-            
     plt.tight_layout()
 
 
@@ -298,26 +510,15 @@ def legend_decomposition(pcv_dict, width = 13, single_img_coeff = None, ignore_m
     mu_step = .025
     muvals = np.arange(0, 1. + mu_step, mu_step)
     
-    #powerset of all phis and mus.
-    cartesian_polar = np.array(np.meshgrid(phivals, muvals)).T.reshape(-1, 2)
+    #powerset of all mus and phis.
+    cartesian_polar = np.array(np.meshgrid(muvals, phivals)).reshape(2, -1).T
     
     #generating the color corresponding to each point.
-    color_arr = []
-    for phi, mu in cartesian_polar:
-        if ignore_phase:
-            if ignore_magnitude:
-                hexa = '#ffffff'
-            else:
-                stand = lambda v: int(0xff * (1-v))
-                g = stand(mu)
-                hexa = rgb_to_hex([g,g,g])
-        else:
-            hexa = rgb_to_hex(circular_hue(phi, magnitude=mu, output_rgba=ignore_magnitude))
-            
-        color_arr.append(hexa)
+    color_arr = circular_hue(cartesian_polar, output_rgba=ignore_magnitude, ignore_magnitude=ignore_magnitude,
+                                        ignore_phase=ignore_phase)
         
-    xvals = cartesian_polar[:,0]
-    yvals = cartesian_polar[:,1]
+    xvals = cartesian_polar[:,1]
+    yvals = cartesian_polar[:,0]
 
     norm = mpl.colors.Normalize(0.0, 2*np.pi)
     fig = plt.figure(figsize= (width,width) if single_img_coeff else (width, 8*width/5) )

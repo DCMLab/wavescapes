@@ -1,14 +1,14 @@
 import numpy as np
 import music21 as m21
 import pretty_midi as pm
-from madmom.audio import chroma
+#from madmom.audio import chroma
 
 from warnings import warn
 import tempfile
 import math
 import os
 
-deep_chroma_processor = chroma.DeepChromaProcessor()
+#deep_chroma_processor = chroma.DeepChromaProcessor()
 
 twelve_tones_vector_name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#','A', 'A#', 'B']
 
@@ -259,27 +259,27 @@ def reframe_pc_mat(pc_mat, bin_size):
     return res
 
 #left here for comparison purpose.
-'''
+
 def librosa_chromagram(filepath, aw_size):
     audio_array, sample_ratio = librosa.load(filepath)
     
     hop_len = round(sample_ratio*aw_size) #hop_len is the analysis window size for the chromagrams in terms of number of sample.
     #so the result's shape is consistent with the one produced in the case of midi files.
     return np.transpose(librosa.feature.chroma_stft(audio_array, sample_ratio, hop_length=hop_len))
-'''
 
-def madmom_chromagram(filepath, aw_size, deep_chroma = False):
-    dcp_base_fps = 10
-    fps = 1./float(aw_size)
-    if aw_size < .1:
-        raise Exception("Audio PCV extraction using the deep chroma extractor can not be done for resolution lower than 0.1 (one tenth of a second)")
-    
-    if deep_chroma:
-        chromagrams = deep_chroma_processor.process(filepath)
-        return reframe_pc_mat(chromagrams, (dcp_base_fps/fps)) 
-    else:
-        clp = chroma.CLPChromaProcessor(fps=fps)
-        return clp.process(filepath)
+
+# def madmom_chromagram(filepath, aw_size, deep_chroma = False):
+#     dcp_base_fps = 10
+#     fps = 1./float(aw_size)
+#     if aw_size < .1:
+#         raise Exception("Audio PCV extraction using the deep chroma extractor can not be done for resolution lower than 0.1 (one tenth of a second)")
+#
+#     if deep_chroma:
+#         chromagrams = deep_chroma_processor.process(filepath)
+#         return reframe_pc_mat(chromagrams, (dcp_base_fps/fps))
+#     else:
+#         clp = chroma.CLPChromaProcessor(fps=fps)
+#         return clp.process(filepath)
     
 # trim the input array so that no empty vectors are located at the beginning and end of the muscial piece
 def trim_pcs_array(pcvs):
@@ -381,6 +381,6 @@ def produce_pitch_class_matrix_from_filename(filepath, aw_size = 1., trim_extrem
         if remove_unpitched_tracks:
             msg = "'remove_unpitched_tracks' argument is meaningless on real audio. Only use it for symbolic data (MIDI/XML)."
             warn(msg)
-        pcvs_arr = madmom_chromagram(filepath, aw_size, deep_chroma)
+        pcvs_arr = librosa_chromagram(filepath, aw_size)
         
     return trim_pcs_array(pcvs_arr) if trim_extremities else pcvs_arr
